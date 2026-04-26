@@ -29,15 +29,13 @@ Build a binary text-classification system that, given the verbatim oral-argument
    - **Step 2 — Transcript:** for each entry in `oral_argument_audio[]`, follow the `href` to `https://api.oyez.org/case_media/oral_argument_audio/{audio_id}`.
    - **Multi-audio cases:** iterate over ALL audio entries per case and concatenate that Justice's utterances. Store the count as `n_audio_sessions` metadata.
    - **Cases without oral argument** (`oral_argument_audio == []`) are filtered out.
-   - **List-response failure mode:** if Oyez can't match a docket exactly, it returns a 30-entry search-fallback list instead of a case dict. The fetcher detects this and raises `CaseNotFound` rather than caching corrupt data — discovered and patched mid-Phase-1.
+   - **List-response failure mode:** if Oyez can't match a docket exactly, it returns a 30-entry search-fallback list. The fetcher detects this and raises `CaseNotFound`.
 
 Joined on `(term, docket_number)`. Unit of analysis: one row = `(case_id, justice_id, concatenated_question_text, vote_label)`.
 
 **Justice ID mapping (SCDB ↔ Oyez):** Hand-built `data/processed/justice_id_map.csv` covers the 16 Justices appearing in 2005–2024. **All 16 slugs validated empirically at Checkpoint 1.**
 
 ## SCDB Field Semantics (verified Stop A)
-
-Locked in from the SCDB codebook (cached at `data/raw/scdb_codebook/`):
 
 | Field | Semantics |
 |---|---|
@@ -55,7 +53,7 @@ voted_petitioner = (partyWinning == 1) == (majority == 2)
 
 Returns `None` if either field is missing or `partyWinning == 2`.
 
-⚠️ **Critical note:** SCDB's `majority` field is encoded `1=dissent, 2=majority` — counterintuitive. The Heien spot-check (Stop A) caught this; without it, every label would have been silently inverted.
+⚠️ **Critical note:** SCDB's `majority` field is encoded `1=dissent, 2=majority` — counterintuitive. Heien spot-check at Stop A caught the inversion.
 
 ## Architecture
 
@@ -66,23 +64,25 @@ JusticeCast/
 │   │   ├── scdb_justice.csv                             # Latin-1
 │   │   ├── scdb_codebook/                               # cached codebook HTML
 │   │   └── oyez/
-│   │       ├── cases/{term}_{docket}.json               # Step 1 cache
-│   │       └── transcripts/{audio_id}.json              # Step 2 cache
+│   │       ├── cases/{term}_{docket}.json
+│   │       └── transcripts/{audio_id}.json
 │   └── processed/
-│       ├── justice_id_map.csv                           # 16 rows, all validated
-│       ├── justice_case_rows.parquet                    # 10,272 raw joined rows
-│       └── modeling_table.parquet                       # post-EDA filtered
+│       ├── justice_id_map.csv                           # 16 rows, validated
+│       ├── justice_case_rows.parquet                    # 10,308 raw joined rows
+│       └── modeling_table.parquet                       # 10,039 rows (post-cleanup)
 ├── src/
 │   ├── fetch_scdb.py
-│   ├── fetch_oyez.py                                    # 2-step, hardened against list-fallback
-│   ├── run_bulk_fetch.py                                # per-case error guard, progress logs
-│   ├── checkpoint1_analysis.py                          # generates summary report
+│   ├── fetch_oyez.py                                    # 2-step, hardened
+│   ├── run_bulk_fetch.py
+│   ├── checkpoint1_analysis.py
+│   ├── rescue_failed_dockets.py
 │   ├── build_dataset.py                                 # join, dedupe, derive labels
+│   ├── build_modeling_table.py                          # cleanup → modeling_table.parquet
 │   └── text_clean.py
 ├── notebooks/
-│   ├── 01_eda.ipynb
+│   ├── 01_eda.ipynb                                     # ⚠ EXPANSION IN PROGRESS
 │   ├── 02_modeling.ipynb
-│   └── JusticeCast_Final.ipynb                          # SUBMISSION notebook
+│   └── JusticeCast_Final.ipynb
 ├── reports/
 │   ├── proposal.md                                      # for the prof, due 5/7
 │   ├── checkpoint1_summary.md
@@ -90,9 +90,11 @@ JusticeCast/
 │   ├── JusticeCast_Pitch.pdf
 │   └── results/
 │       ├── bulk_fetch_log.csv
+│       ├── rescue_log.csv
+│       ├── modeling_table_audit.csv
 │       ├── baseline_results.csv
 │       └── gridsearch_results.csv
-├── tests/                                               # 11 passing
+├── tests/                                               # 17 passing
 ├── requirements.in / requirements.txt
 ├── README.md
 ├── CLAUDE.md
@@ -111,8 +113,9 @@ These rules apply across every phase. Violations are bugs, not preferences.
 6. **Class imbalance handled explicitly.** Final balance is 62.4% petitioner / 37.6% respondent. Use `class_weight='balanced'`. Report ROC AUC and balanced accuracy alongside raw accuracy.
 7. **Every experiment logged.** A `reports/results/` table per sweep — accuracy, precision, recall, F1, ROC AUC, **per-fit wall-clock time**.
 8. **Cache aggressively.** Oyez calls cached at both layers; SCDB downloaded once. Reruns are fast.
-9. **Frame as Option 1 stance classification, not sentiment.** Same machinery, different label. Proposal makes this explicit.
-10. **Hand-verify before bulk operations.** Heien spot-check at Stop A caught the `majority` field inversion that would have flipped every label — rule paid for itself on first use.
+9. **Frame as Option 1 stance classification, not sentiment.** Same machinery, different label.
+10. **Hand-verify before bulk operations.** Heien spot-check caught the `majority` field inversion; rule paid for itself.
+11. **EDA the input, not just the labels.** For text classification, the EDA must engage with the text — per-class vocabulary differences, sample inspection, vocab statistics, length-vs-label confound check, per-Justice signature. Label-only EDA is insufficient for understanding what the model can or cannot learn.
 
 ## Implementation Phases
 
@@ -120,90 +123,62 @@ These rules apply across every phase. Violations are bugs, not preferences.
 
 Repo: https://github.com/Saurav-Kanegaonkar/JusticeCast-Forecasting-Supreme-Court-Votes
 
-⚠️ **Reminder for Saurav:** `reports/proposal.md` is drafted but still needs to be submitted to the professor by **5/7**.
+⚠️ **Reminder for Saurav:** `reports/proposal.md` needs to be submitted to the professor by **5/7**.
 
-### Phase 1: Data Acquisition ✅ COMPLETE (Checkpoint 1)
+### Phase 1: Data Acquisition ✅ COMPLETE
 
-#### Stop A — Codebook + Smoke Test ✅
-Heien gate passed. Codebook semantics locked. `majority` field encoding confirmed `1=dissent, 2=majority` (opposite of the casual Phase 0 guess).
-
-#### Stop B — Bulk Fetch + Checkpoint 1 ✅
-
-**Pipeline result:**
-- 1,470 unique `(term, docket)` pairs attempted → 1,420 Step 1 fetched → 1,322 with valid oral argument → 1,307 cases with parsed transcripts
-- **10,272 joined `(case, Justice)` rows; 10,121 with valid binary labels** (151 excluded: 24 unclear winner + 127 non-participating Justices)
-- **Class balance: 62.4% / 37.6%** (petitioner / respondent)
-- **Unanimous rows: 4,256 (42.1%)** — strong statistical power for unanimity-split sensitivity analysis
-- **Bulk-fetch wall-clock: 54 minutes** (2.2 sec/case incl. multi-step + retries)
-- **Cache footprint: 377 MB** (smaller than 750 MB Stop A estimate)
-
-**Justice coverage cross-check:** all 16 slugs validated. Coverage ratios (actual / expected) range from 79–96%, with one outlier:
-
-- **Thomas: 20.5%** (302 of 1,471 SCDB cases). His silence is a real behavioral signal, not a slug bug. **KEEP him with low-n caveat in Phase 5 per-Justice analysis.**
-- **KBJackson: 96.1% coverage, median word count 1,204** — 8× O'Connor's, 5× Thomas's. Most-engaged questioner in the modern court. **Storytelling hook for Phases 5 and 7.**
-
-**Mid-run engineering saves:**
-- **List-response failure mode:** Oyez returns a 30-entry search-fallback list when a docket can't be matched. `fetch_oyez.py` was hardened to detect this, raise `CaseNotFound`, and never write corrupt cache. 50 polluted cache files were cleaned post-mortem.
-- **Per-case error guard in `run_bulk_fetch.py`** — single bad case can't kill the run.
-
-**Multi-audio cases handled:** 13 in window, including NFIB v. Sebelius (4 sessions, the ACA case), Obergefell, Riley, Miller v. Alabama. Concatenation verified.
-
-**Medellin duplicate resolved:** docket 06-984 has both a merits decision and a per-curiam stay. Dedupe on `(term, docket, justice)` keeping earliest `dateDecision` keeps the merits vote (which is what the oral-argument transcript pairs with).
-
-**Fetch failures (50 of 1,470 = 3.4%):**
-- 16 original-jurisdiction cases — Oyez doesn't catalog these. State-vs-state disputes, no formal cert grant. Drop is defensible (different case type entirely).
-- 3 application/stay dockets — drop.
-- 3 unicode-mojibake dockets — drop.
-- 22 standard-format failures — **rescue at Stop C** before Phase 2. Includes Citizens United (2009/08-205) which would matter for pitch-deck storytelling.
-
-#### Stop C — Targeted Rescue Pass (~30 min)
-
-**Rationale:** 22 standard-format failures are 1.5% of mass. They won't move the model needle. But they include landmark cases like Citizens United — story value > statistical value. The "Boil the Ocean" standard says do the rescue.
-
-**Approach:**
-
-- [ ] Build `src/rescue_failed_dockets.py` that, for each failed standard-format case in `bulk_fetch_log.csv`:
-  - Try `OT{term}/{docket}` format
-  - Try `{term-1}/{docket}` (Oyez sometimes files under the previous term)
-  - Try fuzzy match on case name via Oyez search if both fail
-- [ ] Document the matching strategy attempted per case in `reports/rescue_log.csv`
-- [ ] **Verify Citizens United parses end-to-end** (transcript loaded, Justices identified, labels derived correctly) before claiming the rescue worked
-- [ ] Re-run `build_dataset.py` to fold rescued cases into `justice_case_rows.parquet`
-- [ ] Update `reports/checkpoint1_summary.md` with new totals
-- **STOP C REPORT** — Report:
-  - How many of the 22 were rescued, by which strategy
-  - Citizens United verification (paste the 9-row table for the case)
-  - New row counts in the parquet
-  - Any cases that genuinely don't exist on Oyez (legitimate drops)
+10,308 joined `(case, Justice)` rows post-rescue. 1,470 cases attempted → ~1,330 with parsed transcripts. Bulk fetch took 54 minutes; cache footprint 377 MB. All 16 Justice slugs validated. List-response failure mode patched mid-run.
 
 ### Phase 2: EDA & Inclusion/Exclusion Decisions
 
-**Cleanup tasks (do these first, before EDA notebook):**
+#### 2A — Cleanup + Modeling Table ✅ COMPLETE (Checkpoint 2 substantive)
 
-- [ ] In `build_dataset.py`'s modeling-table step, **drop the 151 NaN-label rows** (24 from `partyWinning == 2`, 127 from `majority NaN`). The 45 unmatched `(case, Justice)` rows referenced in CC's Checkpoint 1 are a subset of these — drop them all together at the modeling-table boundary.
-- [ ] **Drop original-jurisdiction cases** from the modeling table. They're substantively different (no cert grant, state-vs-state) and Oyez doesn't catalog them anyway.
-- [ ] Decide on a low-word-count threshold based on EDA (e.g., drop rows where Justice spoke fewer than 50 words).
+Cleanup applied: drop NaN-label rows (171), drop original-jurisdiction cases (17), drop word_count < 30 (81). Modeling table: **10,039 rows × 20 cols, 1,293 distinct cases, 16 Justices**. Class balance 62.4/37.6; unanimous 41.9%/contested 58.1%.
 
-**EDA notebook (`notebooks/01_eda.ipynb`):**
+#### 2B — EDA Expansion ⚠ IN PROGRESS (CHECKPOINT 2 REOPENED)
 
-- [ ] Vote-label distribution overall and per-Justice
-- [ ] Word-count distributions per Justice (Thomas in low tail, KBJackson in high tail)
-- [ ] Cases per term; petitioner-win rate per term
-- [ ] Correlation between Justice talkativeness and predictability (preview)
-- [ ] **Label balance for unanimous vs contested cases** (Phase 5 sensitivity hooks here)
-- [ ] Storytelling-grade visuals: word-count distribution by Justice with Thomas and KBJackson as named outliers; per-term petitioner-win-rate over time
-- [ ] All charts have titles + axis labels; no default matplotlib styling
+The initial EDA notebook focused heavily on label distributions and Justice metadata but did not adequately engage with the text content itself — the actual model input. Reopened to add the missing analyses before any modeling work begins. Non-Negotiable #11 codifies the principle.
 
-**Decisions documented in `project-state.md`:**
+**The three blockers (must land before Phase 3 begins):**
 
-- **Thomas:** KEEP with low-n caveat. 302 cases is enough for stable per-Justice estimates.
-- **Unanimous cases:** KEEP. Flagged via `unanimous` metadata, split-analyzed in Phase 5.
-- **Original-jurisdiction:** DROP. Substantively different case type.
-- **Low-word-count threshold:** TBD from EDA distributions.
+- [ ] **B1. Per-class vocabulary differences.** For the modeling-table corpus split by label, compute:
+  - Top 30 unigrams and top 30 bigrams ranked by log-odds-with-Dirichlet-prior (preferred over raw frequency ratio for stability) per class
+  - Effect size: how strong is the discrimination? If the top-30 list is dominated by case-specific content terms (party names, statute numbers, e.g. "miranda", "section 230", "epa"), flag it explicitly — this likely means the model will partly learn topic memorization. **Decision point at Checkpoint 2-reopen:** if content terms dominate, add a custom stopword list (case names, party names, statute identifiers, common legal-topic nouns) to the Phase 3 vectorizer config. If stance markers dominate, proceed with default sklearn-stopwords behavior.
+  - Visualize: a side-by-side bar chart of top n-grams per class, with content terms highlighted in a different color from stance markers
+  - Document the finding plainly: "the text is/isn't textually distinguishable by class, and here's what dominates"
 
-**Build the final modeling table** → `data/processed/modeling_table.parquet`
+- [ ] **B2. Per-Justice majority-class baseline as the true yardstick.** Produce a table with one row per Justice:
+  - `n_rows`, `petitioner_vote_rate`, `majority_class_baseline` (= max(rate, 1-rate)), `n_unanimous_rows`, `n_contested_rows`
+  - Visualize as a horizontal bar chart sorted by baseline accuracy, with the global 62.4% line shown for reference
+  - **Add a one-paragraph note in the notebook explicitly stating:** "global majority-class accuracy of 62.4% is not the right reference for this problem because per-Justice baselines range from ~50% to ~80%. Phase 5 evaluation must compare per-Justice model accuracy to that Justice's individual baseline, not the global average. A Justice with an 80% baseline whose model scores 75% is performing *worse than majority-class* on their rows even if global accuracy looks good."
 
-- **CHECKPOINT 2:** Report final dataset shape after cleanup, inclusion criteria applied, label balance overall and split by unanimity, expected baselines (majority-class accuracy as a floor). **Stop and wait.**
+- [ ] **B3. Sample text inspection.** Print 5 randomly-sampled Justice-utterance blobs (fixed `random_state=42`) covering:
+  - 1 from a unanimous case
+  - 1 from a contested case
+  - 1 from a multi-audio case (e.g., NFIB, Obergefell)
+  - 1 from Thomas (low word-count tail)
+  - 1 from KBJackson (high word-count tail)
+  - For each, print the first ~500 chars of the concatenated text
+  - **Audit checklist:** any transcription artifacts (`[laughter]`, `[crosstalk]`, `inaudible`, leading/trailing dashes, double spaces from session boundaries)? Encoding issues? Truncated sentences? Spurious capitalization patterns?
+  - **Decision point at Checkpoint 2-reopen:** if transcription artifacts are present and frequent, add a preprocessing step (regex strip) to `text_clean.py` before Phase 3.
+
+**The three non-blockers (add if reasonable budget; otherwise document as known gaps):**
+
+- [ ] **B4. Vocabulary statistics.** Total unique tokens in the corpus (after default sklearn tokenization), Zipf-plot of token-frequency rank, stopword density (% of tokens that are NLTK English stopwords). Informs Phase 3 `min_df` / `max_df` choices empirically rather than from the cai-plan's defaults.
+
+- [ ] **B5. Word count vs label.** Compute mean and median word count per class, with a Mann-Whitney U test for distributional difference. If significantly different, flag as a confound: the model could be using utterance length implicitly. Decide: control for it (e.g., add a length feature explicitly so we can check coefficient sign), or accept and report.
+
+- [ ] **B6. Per-Justice vocabulary signature.** Quick check: for each Justice, top 10 distinctive bigrams (compared to all other Justices). Are the signatures distinctive? If yes, document the implication: the model on TF-IDF + bigrams could be partly learning Justice-author-identity from text style, which combined with stable per-Justice voting patterns gives "free" predictive power that isn't actually bench-reading. This affects how we frame Phase 5 results — honest interpretation rather than overclaiming.
+
+**Updated EDA acceptance criteria:**
+
+- [ ] All three blockers (B1–B3) done and documented in `notebooks/01_eda.ipynb` with prose interpretation, not just charts
+- [ ] At least 2 of the 3 non-blockers (B4–B6) done; any skipped ones documented as a known gap in `project-state.md`
+- [ ] If B1 surfaces content-term dominance: a custom stopword list is added to `src/text_clean.py` (or a vectorizer-config helper module) ready for Phase 3 to consume
+- [ ] If B3 surfaces transcription artifacts: a preprocessing regex pipeline is added to `text_clean.py`, applied to the modeling-table text column, and the modeling-table parquet is rebuilt
+- [ ] EDA notebook still passes `Restart & Run All` cleanly via nbconvert
+
+- **CHECKPOINT 2 (reopened):** Report findings from B1–B6, decisions made on stopwords / preprocessing, and any rebuilt artifacts. **Stop and wait.**
 
 ### Phase 3: Modeling Pipeline (Baseline Sweep)
 
@@ -212,6 +187,7 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
     - BoW: `CountVectorizer(ngram_range=(1,1))`
     - TF-IDF unigram: `TfidfVectorizer(ngram_range=(1,1))`
     - n-grams (TF-IDF bigrams): `TfidfVectorizer(ngram_range=(1,2))`
+  - **All three vectorizers consume the same custom stopword config and preprocessor** decided at Checkpoint 2-reopen (if applicable). Pull from `src/text_clean.py`.
   - **Classifiers (3):**
     - `LogisticRegression(class_weight='balanced', max_iter=2000)`
     - `LinearSVC(class_weight='balanced')` — `decision_function` for AUC; `CalibratedClassifierCV` only for the calibration curve in Phase 5
@@ -219,8 +195,10 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
   - 9 combos total
 - [ ] `StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)` with `groups=case_id` for the 80/20 split
 - [ ] Train all 9, evaluate, log to `reports/results/baseline_results.csv` with per-fit wall-clock time
+- [ ] **Compare to the per-Justice baselines from B2,** not just the global 62.4% baseline
 - [ ] Identify top 3 performers by ROC AUC for tuning
-- **CHECKPOINT 3:** Baseline results table with all 9 combinations, per-fit timing, identify top 3. **Stop and wait** — CAI reviews top-3 selection and approves Phase 4 compute budget.
+- [ ] Quick eyeball pass on top features for the best linear model — if dominated by case-content terms despite the EDA-driven stopword list, surface it for Checkpoint 3 discussion
+- **CHECKPOINT 3:** Baseline results table with all 9 combinations, per-fit timing, top-3 selection, per-Justice lift over baseline, top-features eyeball read. **Stop and wait** — CAI reviews top-3 selection and approves Phase 4 compute budget.
 
 ### Phase 4: GridSearchCV — Sequential Strategy
 
@@ -229,6 +207,7 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
 - [ ] LogReg run: `C ∈ [0.01, 0.1, 1, 10, 100]`, `penalty ∈ ['l1','l2']` (with appropriate solver)
 - [ ] SVM run: `C ∈ [0.01, 0.1, 1, 10]`
 - [ ] Vectorizer (joint with both): `min_df ∈ [2, 5]`, `max_df ∈ [0.9, 0.95]`, `ngram_range ∈ [(1,1), (1,2), (1,3)]`
+  - Adjust grid bounds based on B4 vocabulary statistics if EDA suggests different defaults
 - [ ] `StratifiedGroupKFold(n_splits=5)` with `groups=case_id`, `scoring='roc_auc'`, `n_jobs=-1`
 - [ ] Record best vectorizer config from whichever linear model wins
 
@@ -249,17 +228,18 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
 
 - [ ] For winning model: confusion matrix, precision, recall, F1, ROC AUC, ROC curve, PR curve, calibration curve
   - If winner is `LinearSVC`: wrap with `CalibratedClassifierCV(method='sigmoid', cv=5)` **only for the calibration curve**
-- [ ] **Sensitivity analysis: per-Justice metrics split by unanimity.** For each Justice, report accuracy and ROC AUC separately on (a) unanimous cases, (b) contested cases. Discuss in prose.
+- [ ] **Sensitivity analysis: per-Justice metrics split by unanimity.** Per-Justice accuracy and ROC AUC on (a) unanimous cases, (b) contested cases. Discuss in prose. **Frame using the per-Justice baselines from B2 — model lift over each Justice's personal baseline, not over the global 62.4%.**
 - [ ] **Per-Justice performance breakdown with explicit storytelling hooks:**
-  - **KBJackson** (median 1,204 words, 96% coverage) — most-engaged questioner; does her chattiness translate to predictability?
-  - **Thomas** (302 cases, 20.5% speaking rate) — low-n; is the model meaningful for him? Treat as a sensitivity case, not a primary claim.
+  - **KBJackson** (median 1,205 words, 96% coverage) — most-engaged questioner
+  - **Thomas** (295 cases post-cleanup, 20.5% speaking rate) — low-n; sensitivity treatment
   - **Sotomayor / Kagan / Roberts** as the "core" predictable bench
 - [ ] Top features per class:
-  - LogReg/SVM: top 30 positive coefficients (predict petitioner) and top 30 negative (predict respondent)
+  - LogReg/SVM: top 30 positive coefficients (predict petitioner) and top 30 negative (predict respondent). **Compare against the B1 EDA findings** — does the model's top features align with the pre-modeling vocabulary differences? Surprises matter.
   - RF: top 30 feature importances
+- [ ] **Honest interpretation pass.** If B6 surfaced strong per-Justice vocabulary signatures, explicitly discuss whether part of the model's lift comes from author-identity-from-text rather than stance-from-questions. Don't overclaim "we measured how Justices read the bench" if the model is partly recovering "this is Sotomayor and Sotomayor votes liberal."
 - [ ] Business interpretation paragraph — FP cost vs FN cost in legal-tech use case
 - [ ] All in `JusticeCast_Final.ipynb` with prose around each cell
-- **CHECKPOINT 5:** Full evaluation section complete. CAI reviews for storytelling. **Stop and wait.**
+- **CHECKPOINT 5:** Full evaluation section complete. CAI reviews for storytelling and honesty. **Stop and wait.**
 
 ### Phase 6: ML Canvas + Notebook Polish
 
@@ -282,7 +262,7 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
   6. ML Canvas summary
   7. Data — SCDB + Oyez, sample sizes, coverage
   8. Approach — pipeline diagram, vectorizers, classifiers, eval
-  9. **Results** — confusion matrix, ROC AUC, per-Justice storytelling featuring KBJackson (the engaged questioner) and Thomas (the silent outlier), unanimity sensitivity
+  9. **Results** — confusion matrix, ROC AUC, per-Justice storytelling featuring KBJackson and Thomas, unanimity sensitivity, lift over per-Justice baselines (not global)
   10. Recommendations — go-to-market, risks, next steps
   11. Outro / Q&A
 - [ ] Storytelling: open with a vivid case (Citizens United if rescue succeeded; Heien as fallback), bookend with the same case
@@ -292,13 +272,15 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
 ## Definition of Done
 
 - Notebook runs top-to-bottom on a fresh kernel (`Restart & Run All`) with zero errors and zero un-justified warnings
+- EDA includes per-class vocabulary differences, per-Justice baseline table, sample text inspection, vocab statistics, length-vs-label check, per-Justice signature check
 - All 9 vectorizer × classifier baseline combinations evaluated and logged with per-fit timing
 - GridSearchCV applied via the sequential strategy (Stage 4A two linear-model runs sharing the vectorizer grid; Stage 4B RF with fixed vectorizer)
 - Final winning model has: confusion matrix, precision, recall, F1, ROC AUC, ROC curve, PR curve, calibration curve
-- Per-Justice performance breakdown is in the notebook with KBJackson and Thomas explicitly discussed
+- Per-Justice performance reported as **lift over each Justice's individual baseline**, not just absolute accuracy
 - Unanimity sensitivity analysis (per-Justice metrics split by unanimous vs contested) is in the notebook
-- Top n-grams for each class extracted and visualized for at least one model
-- Business interpretation paragraph (FN vs FP cost) is in the notebook prose
+- Top n-grams for each class extracted; comparison between EDA-pre-modeling top features and post-modeling top features documented
+- Honest interpretation pass on whether model lift comes from stance or author-identity
+- Business interpretation paragraph (FN vs FP cost) in the notebook prose
 - Machine Learning Canvas v0.4 filled in and exported as PDF
 - Pitch deck 8–12 slides, exported as PDF, follows the storytelling arc
 - README documents how to reproduce from a fresh clone
@@ -318,37 +300,40 @@ Heien gate passed. Codebook semantics locked. `majority` field encoding confirme
 
 ## Current Instruction
 
-**Status:** Phase 1 ✅ complete (Checkpoint 1 cleared). CC is approved to execute **Stop C (rescue pass)** then proceed to **Phase 2** without an intermediate CAI sign-off — Stop C is a tightly scoped 30-min cleanup, and Phase 2's first task is rebuilding the modeling table after rescue lands.
+**Status:** Phase 2A complete (cleanup + modeling table). **Phase 2B reopened** — EDA was insufficient on the text dimension and CAI approved Checkpoint 2 prematurely. CC executes the EDA expansion before Phase 3 begins.
 
-**Resolutions from Checkpoint 1:**
+**Why this is being reopened (transparent for the audit trail):** the initial EDA thoroughly characterized the labels and Justice metadata, but a text classifier's EDA must engage with the text itself. Without per-class vocabulary differences, we'd enter Phase 3 not knowing whether the labels are textually predictable at all. Without per-Justice baselines, "70% accuracy" in Phase 5 is uninterpretable. Without sample text inspection, we may miss preprocessing decisions that show up as Phase 3 noise. The 1–2 hours to add these is small relative to the cost of running modeling on top of incomplete EDA.
 
-- **(a) Drop 45 NaN-label rows at modeling-table build: approved.** Folded into Phase 2 cleanup tasks.
-- **(b) Keep Thomas with low-n caveat: approved.** Phase 5 explicitly treats him as a sensitivity case.
-- **(c) No window extension: approved.** 10,121 labeled rows is plenty.
-- **(d) Rescue the 22 standard-format failures: approved (Stop C).** Story value > statistical value — Citizens United is named-and-shamed in the failures and we want it for the pitch deck. ~30 min budget.
-- **KBJackson chattiness: added as explicit storytelling hook** in Phases 5 and 7.
+**What to produce this turn (Phase 2B EDA Expansion):**
 
-**What to produce this turn (Stop C + Phase 2):**
+**Blockers (B1–B3 must land):**
 
-**Stop C (rescue):**
-1. Implement `src/rescue_failed_dockets.py` with the three matching strategies (OT-prefix, term-1 shift, fuzzy case-name search)
-2. Run rescue on the 22 standard-format failures from `bulk_fetch_log.csv`
-3. Document per-case rescue outcome in `reports/rescue_log.csv`
-4. **Verify Citizens United (2009/08-205) parses end-to-end** before claiming the rescue worked — paste the per-Justice table
-5. Re-run `build_dataset.py` to fold rescued cases into `justice_case_rows.parquet`
-6. Update `reports/checkpoint1_summary.md` with new totals
-7. Quick stop signal here for CAI to confirm the rescue worked before EDA — keep it short (just the rescue counts + Citizens United table)
+1. **B1 — Per-class vocabulary differences.** Top 30 unigrams + top 30 bigrams per class (`voted_petitioner=1` vs `voted_petitioner=0`), ranked by log-odds-with-Dirichlet-prior. Side-by-side bar chart, content terms vs stance markers visually distinguished. Prose interpretation in the notebook. **Decision:** if content-term dominance, build a custom stopword list in `src/text_clean.py` for Phase 3 vectorizer consumption.
 
-**Phase 2 (after rescue stop):**
-1. Apply Phase 2 cleanup tasks: drop NaN-label rows, drop original-jurisdiction cases, set low-word-count threshold from EDA
-2. Produce `notebooks/01_eda.ipynb` per the spec above
-3. Build `data/processed/modeling_table.parquet`
-4. Document Phase 2 decisions in `project-state.md`
-5. Stop at Checkpoint 2
+2. **B2 — Per-Justice baseline table.** One row per Justice with `n_rows`, `petitioner_vote_rate`, `majority_class_baseline`, `n_unanimous_rows`, `n_contested_rows`. Sorted bar chart with global baseline shown as reference line. **Mandatory prose paragraph** in the notebook stating that per-Justice baselines (not the global 62.4%) are the correct comparison reference, with explicit framing for Phase 5.
+
+3. **B3 — Sample text inspection.** Five fixed-seed random samples (one each from: unanimous case, contested case, multi-audio case, Thomas, KBJackson). Print first ~500 chars of each. Audit checklist for transcription artifacts. **Decision:** if artifacts present, add preprocessing regex to `text_clean.py` and rebuild `modeling_table.parquet` (the modeling-table builder should be idempotent).
+
+**Non-blockers (B4–B6 — do at least 2 of 3, document any skipped as known gaps):**
+
+4. **B4 — Vocabulary statistics.** Total unique tokens, Zipf plot, stopword density.
+
+5. **B5 — Word count vs label.** Mean/median word count per class + Mann-Whitney U test. Document confound implications.
+
+6. **B6 — Per-Justice vocabulary signature.** Top 10 distinctive bigrams per Justice (vs all others). Document author-identity-from-text implications for Phase 5 honesty.
+
+**What to stop and report back on:**
+
+- All B1–B3 outputs (charts + interpretation prose)
+- At least 2 of B4–B6 outputs
+- Any preprocessing changes made to `text_clean.py` and whether the modeling table was rebuilt
+- Any custom stopword list added (and what's in it)
+- Decisions deferred or skipped, with reasoning
+- The `01_eda.ipynb` still passes `Restart & Run All` via nbconvert
 
 **Pushback welcome on:**
 
-- **Original-jurisdiction drop** — if EDA reveals these cases have transcripts after all (unlikely but possible), reconsider
-- **Low-word-count threshold** — propose the empirical cutoff with a histogram, don't pick arbitrarily
-- **Any rescued case that fails the Citizens United-style end-to-end verification** — drop it from the rescue and document why, rather than claim a partial parse
-- The KBJackson / Thomas storytelling angles — if EDA reveals a more compelling angle (e.g., a Justice whose talkativeness inversely correlates with predictability), propose substituting it
+- The log-odds-with-Dirichlet-prior choice for B1 — if you have a sklearn/scipy primitive you prefer (e.g., chi-squared, mutual information), use it; the goal is "robust ranking of class-discriminating tokens," not the specific statistic
+- Any blocker that turns out to require disproportionate effort vs value — push back with reasoning, don't silently downgrade
+- The "if content-term dominance, build custom stopword list" rule — if the dominance is mild (a few terms in the top 30), consider whether stopwording them is appropriate vs just noting it; full stopword list is for clear dominance, not edge cases
+- Anything else where the plan's abstraction collides with code reality

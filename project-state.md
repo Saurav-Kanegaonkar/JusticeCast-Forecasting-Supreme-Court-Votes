@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 2 Checkpoint 2
+Last updated: 2026-04-26 by CC at Phase 2 Checkpoint 2 (reopened — B1–B6 EDA expansion)
 
 ## Project Context
 
@@ -210,13 +210,71 @@ Cleanup audit (per-stage row counts in `reports/results/modeling_table_audit.csv
   after drop original-jurisdiction cases               10,120  (- 17)
   after drop word_count < 30                           10,039  (- 81)
 
+## Phase 2B EDA Expansion (B1–B6, reopened Checkpoint 2)
+
+CAI reopened Checkpoint 2 because the initial EDA characterized labels well
+but didn't engage with the text — the actual model input. Six expansion
+tasks landed:
+
+- **B1 (per-class vocabulary differences)**: variance-adjusted log-odds
+  with Dirichlet prior (Monroe et al. 2008) on unigrams + bigrams. **Finding:
+  overwhelming content-term dominance.** Top petitioner-side: officer,
+  church, religious, arrest, warrant, ada, bia, navigable, wetlands. Top
+  respondent-side: illinois, idaho, tinker, sentencing, crack, cocaine,
+  pollutant, pto, algorithm. **Decision: built custom stopword list** in
+  `src/text_clean.py::STOPWORDS_FOR_VECTORIZER` — 106 custom additions on
+  top of sklearn's 318 (US states + agency abbreviations + famous case
+  shortnames + court-procedural terms). Deliberately did NOT stopword
+  thematic legal vocabulary (officer, jury, warrant, attorney, school,
+  sentence) — those carry stance through context.
+- **B2 (per-Justice baseline table)**: per-Justice baselines range
+  ~50%–80%. Mandatory framing prose added to notebook: "global 62.4% is
+  not the right reference; Phase 5 must report lift over per-Justice
+  baselines." Phase 5 spec updated to enforce this.
+- **B3 (sample text inspection)**: 5 fixed-seed samples revealed bracketed
+  transcription annotations (`[Laughter]`, `[Crosstalk]`, etc.) in 1,078
+  rows (10.7%). **Decision: added `preprocess_text` regex** in
+  `src/text_clean.py` (strips `\\[[^\\]]+\\]`, normalizes whitespace) and
+  rebuilt `data/processed/modeling_table.parquet` with cleaned text.
+- **B4 (vocabulary statistics)**: 32,638 unique tokens, 5.37M total
+  instances. 305 sklearn stopwords (0.9% of vocab) cover 59% of all token
+  instances — textbook Zipf shape.
+- **B5 (word count vs label)**: Mann-Whitney U test on `word_count` vs
+  `voted_petitioner`. p-value reported in notebook; if significant, length
+  is a confound that Phase 3 baselines must beat a length-only classifier
+  to claim model lift.
+- **B6 (per-Justice vocabulary signature)**: top 10 distinctive bigrams
+  per Justice via TF-IDF max-mean differential. **Author-identity-from-text
+  is a real concern** — Justices have detectable signatures, and combined
+  with their stable voting priors (B2), part of any Phase 5 lift may come
+  from "this is Sotomayor → Sotomayor votes liberal" rather than
+  bench-questioning signal. Phase 5 must explicitly discuss this. Cleanest
+  test of "real" model lift: per-Justice AUC on **contested** cases.
+
+### Artifacts updated in Phase 2B
+
+- `src/text_clean.py`: `preprocess_text()` + `STOPWORDS_FOR_VECTORIZER`
+  (424 total = 318 sklearn + 106 custom)
+- `src/build_modeling_table.py`: applies `preprocess_text` to text column,
+  recomputes `word_count` post-preprocessing
+- `data/processed/modeling_table.parquet`: rebuilt; bracket annotations
+  stripped (0 remaining vs 1,499 before); shape unchanged at 10,039 × 20
+- `notebooks/01_eda.ipynb`: extended from 7 to 13 sections (B3, B4, B1, B2,
+  B5, B6 added in that order). Verified Restart-and-Run-All via nbconvert.
+- `tests/test_text_clean.py`: 8 new tests (preprocessor idempotence,
+  bracket stripping, sklearn stopword inclusion, custom-stopword inclusion,
+  thematic-vocab non-overstrip)
+- 25 pytest tests total, all green
+
 ## Current Status
 
 - **Completed phases**: Phase 0; Phase 1 Stop A; Phase 1 Stop B (bulk fetch);
-  Stop C (rescue, +2 cases incl. Citizens United); Phase 2 (cleanup + EDA
-  notebook + modeling table).
-- **Current phase**: Awaiting Checkpoint 2 approval before Phase 3 (baseline
-  sweep — 9 vectorizer × classifier combos with per-fit timing).
+  Stop C (rescue, +Citizens United); Phase 2A (cleanup + initial EDA +
+  modeling table); Phase 2B (B1–B6 EDA expansion + preprocessor + custom
+  stopwords + parquet rebuild).
+- **Current phase**: Awaiting reopened Checkpoint 2 approval before Phase 3
+  (baseline sweep). Phase 3 vectorizers must consume
+  `STOPWORDS_FOR_VECTORIZER` from `src/text_clean.py`.
 - **Blockers**: None.
 
 ## What's Left

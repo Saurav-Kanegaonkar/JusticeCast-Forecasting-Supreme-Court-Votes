@@ -29,6 +29,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.text_clean import preprocess_text
+
 IN_PATH = Path("data/processed/justice_case_rows.parquet")
 OUT_PATH = Path("data/processed/modeling_table.parquet")
 AUDIT_PATH = Path("reports/results/modeling_table_audit.csv")
@@ -67,9 +69,19 @@ def build_modeling_table(word_count_floor: int = WORD_COUNT_FLOOR_DEFAULT) -> pd
     no_orig = labeled[~labeled["docket"].apply(is_original_jurisdiction)].copy()
     _step("after drop original-jurisdiction cases", no_orig)
 
-    # 3. Drop low-word-count rows
+    # 3. Drop low-word-count rows (uses pre-cleanup word_count from Phase 1
+    #    parquet; rough enough since preprocessing only strips bracket
+    #    annotations which are typically 1-2 tokens each)
     final = no_orig[no_orig["word_count"] >= word_count_floor].copy()
     _step(f"after drop word_count < {word_count_floor}", final)
+
+    # 4. Apply preprocess_text to the modeling-table text column. Strips
+    #    transcription artifacts ([Laughter], [Crosstalk], etc.) so they
+    #    don't become Phase 3 vocabulary tokens. Idempotent.
+    final["text"] = final["text"].fillna("").map(preprocess_text)
+    # Recompute word_count on the cleaned text so downstream code sees the
+    # post-preprocessing length.
+    final["word_count"] = final["text"].str.split().str.len()
 
     final["voted_petitioner"] = final["voted_petitioner"].astype("int8")
     final["unanimous"] = final["unanimous"].astype("int8")
