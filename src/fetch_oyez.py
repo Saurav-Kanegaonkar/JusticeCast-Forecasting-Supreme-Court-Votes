@@ -64,6 +64,15 @@ class _RetriableHTTPError(requests.HTTPError):
     """5xx / 429 — retry. Distinct from 4xx terminal failures."""
 
 
+class CaseNotFound(Exception):
+    """Oyez returned a search-fallback list instead of a case dict.
+
+    Happens for original-jurisdiction dockets ("128 ORIG"), application
+    dockets ("21A244"), and other non-standard formats Oyez doesn't index
+    under the requested key. Treated as a per-case failure — do not retry.
+    """
+
+
 @retry(
     retry=retry_if_exception_type(
         (_RetriableHTTPError, requests.Timeout, requests.ConnectionError)
@@ -91,16 +100,31 @@ def _safe_docket(docket: str) -> str:
 
 
 def fetch_case(term: int, docket: str, force: bool = False) -> dict:
-    """Step 1: case metadata. Cached at oyez/cases/{term}_{docket}.json."""
+    """Step 1: case metadata. Cached at oyez/cases/{term}_{docket}.json.
+
+    Raises CaseNotFound if Oyez returns a search-fallback list rather than
+    a case dict (typical for non-standard dockets like "128 ORIG").
+    """
     CASES_DIR.mkdir(parents=True, exist_ok=True)
     cache = CASES_DIR / f"{term}_{_safe_docket(docket)}.json"
     if cache.exists() and not force:
         logger.debug("CACHE HIT case %s/%s", term, docket)
-        return json.loads(cache.read_text())
-    url = f"{OYEZ_BASE}/cases/{term}/{docket}"
-    logger.info("CACHE MISS case %s/%s — fetching", term, docket)
-    data = _get_json(url)
-    cache.write_text(json.dumps(data))
+        data = json.loads(cache.read_text())
+    else:
+        url = f"{OYEZ_BASE}/cases/{term}/{docket}"
+        logger.info("CACHE MISS case %s/%s — fetching", term, docket)
+        data = _get_json(url)
+        if isinstance(data, list):
+            raise CaseNotFound(
+                f"Oyez returned a {len(data)}-entry search list for {term}/{docket} "
+                f"— no exact case match (likely non-standard docket format)"
+            )
+        cache.write_text(json.dumps(data))
+
+    if isinstance(data, list):
+        raise CaseNotFound(
+            f"Cached response for {term}/{docket} is a search list — invalid"
+        )
     return data
 
 
@@ -129,28 +153,35 @@ class FetchResult:
 
 
 def fetch_case_full(term: int, docket: str, force: bool = False) -> FetchResult:
-    """Step 1 + Step 2 for a single case. Cases without audio return 0 sessions."""
+    """Step 1 + Step 2 for a single case. Never raises — errors are returned in `error`."""
     try:
         case = fetch_case(term, docket, force=force)
+    except CaseNotFound as e:
+        logger.warning("Skipping %s/%s: %s", term, docket, e)
+        return FetchResult(term, docket, False, 0, 0, error=f"CaseNotFound: {e}")
     except Exception as e:
         logger.error("Step 1 failed for %s/%s: %s", term, docket, e)
         return FetchResult(term, docket, False, 0, 0, error=str(e))
 
-    audios = case.get("oral_argument_audio") or []
-    fetched = 0
-    for entry in audios:
-        audio_id = entry.get("id")
-        if audio_id is None:
-            continue
-        try:
-            fetch_transcript(audio_id, force=force)
-            fetched += 1
-        except Exception as e:
-            logger.error(
-                "Step 2 failed for transcript %s (case %s/%s): %s",
-                audio_id, term, docket, e,
-            )
-    return FetchResult(term, docket, True, len(audios), fetched)
+    try:
+        audios = case.get("oral_argument_audio") or []
+        fetched = 0
+        for entry in audios:
+            audio_id = (entry or {}).get("id")
+            if audio_id is None:
+                continue
+            try:
+                fetch_transcript(audio_id, force=force)
+                fetched += 1
+            except Exception as e:
+                logger.error(
+                    "Step 2 failed for transcript %s (case %s/%s): %s",
+                    audio_id, term, docket, e,
+                )
+        return FetchResult(term, docket, True, len(audios), fetched)
+    except Exception as e:
+        logger.exception("Unexpected error processing %s/%s", term, docket)
+        return FetchResult(term, docket, True, 0, 0, error=f"post-fetch error: {e}")
 
 
 def bulk_fetch(case_keys: Iterable[tuple[int, str]], force: bool = False) -> list[FetchResult]:

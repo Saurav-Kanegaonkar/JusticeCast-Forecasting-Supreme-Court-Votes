@@ -99,6 +99,10 @@ def collect_case_utterances(term: int, docket: str) -> tuple[list[dict], int]:
     if not case_path.exists():
         return [], 0
     case = json.loads(case_path.read_text())
+    if not isinstance(case, dict):
+        # Polluted cache entry (Oyez search-fallback list) — treat as no-audio.
+        logger.debug("Skipping non-dict cached response for %s/%s", term, docket)
+        return [], 0
     audios = case.get("oral_argument_audio") or []
     rows: list[dict] = []
     for entry in audios:
@@ -177,11 +181,30 @@ def build_dataset() -> pd.DataFrame:
                 len(utts_df), len(case_keys), cases_with_no_audio)
 
     scdb_cols = [
-        "caseId", "caseName", "term", "docket", "justice", "justiceName",
+        "caseId", "caseName", "term", "docket", "dateDecision",
+        "justice", "justiceName",
         "partyWinning", "majority", "majVotes", "minVotes",
     ]
     scdb_slim = scdb[scdb_cols].copy()
     scdb_slim["docket"] = scdb_slim["docket"].astype(str)
+    scdb_slim["dateDecision_dt"] = pd.to_datetime(
+        scdb_slim["dateDecision"], errors="coerce", format="mixed"
+    )
+
+    # Dedupe SCDB on (term, docket, justice). Some dockets recur as a follow-up
+    # per-curiam (e.g., Medellin v. Texas 2007/06-984 has caseId 2007-026 for
+    # the merits decision and 2007-073 for the later stay denial). The oral
+    # argument transcript belongs to the original merits case, so we keep the
+    # earliest dateDecision for each (term, docket, justice).
+    pre_dedup = len(scdb_slim)
+    scdb_slim = (
+        scdb_slim.sort_values("dateDecision_dt", kind="stable")
+                 .drop_duplicates(["term", "docket", "justice"], keep="first")
+                 .drop(columns=["dateDecision_dt"])
+    )
+    if len(scdb_slim) < pre_dedup:
+        logger.info("Deduped SCDB by (term, docket, justice): %d → %d rows",
+                    pre_dedup, len(scdb_slim))
 
     joined = (
         utts_df.merge(id_map[["oyez_identifier", "scdb_justice_id"]],

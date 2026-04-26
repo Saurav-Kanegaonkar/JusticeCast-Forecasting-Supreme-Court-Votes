@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 1 Stop A
+Last updated: 2026-04-26 by CC at Phase 1 Checkpoint 1 (Stop B complete)
 
 ## Project Context
 
@@ -159,16 +159,45 @@ Sotomayor (lone dissent) → 1, all others → 0.
 - **Heien (2014/13-604) end-to-end**: 8 Justice rows produced, Sotomayor=1,
   others=0. Word counts range 291 (Breyer) to 1,131 (Scalia). Sotomayor
   had 20 turns — the most engagement, despite being the lone dissent.
-- **No bulk fetch performed yet** — Stop A is gated on CAI sign-off.
+- **Bulk fetch complete (Stop B)**: 1,470 cases attempted, 1,322 succeeded
+  with audio, 98 had no audio, 50 failed (28 non-standard docket formats +
+  22 standard-format dockets Oyez doesn't index under that exact key, e.g.
+  2009/08-205 Citizens United). Total wall-clock: 54 min, 377 MB cache.
+- **Final modeling-table-precursor**: `data/processed/justice_case_rows.parquet`
+  with **10,272 (case, Justice) rows**, 1,307 distinct cases.
+- **Label distribution**: 62.4% with-petitioner / 37.6% against-petitioner;
+  151 rows (1.5%) excluded due to `partyWinning == 2` (24) or
+  `majority` NaN (127). Majority-class baseline = 62.4%.
+- **Unanimity**: 4,256 rows (42% of labeled) are in unanimous cases.
+- **Multi-audio cases**: 13 (e.g. NFIB v. Sebelius with 4 sessions, Obergefell
+  with 2). Concatenation worked correctly.
+- **Justice coverage cross-check**: all 16 slugs returned non-zero matches.
+  Lowest meaningful ratio: Thomas at 20.5% (his real silence pattern, not
+  a bug). All 8 previously unverified slugs validated with no fix needed.
+- **Word counts per Justice**: tail at O'Connor (median 148, n=35),
+  head at KBJackson (median 1,204, n=174). Thomas median 233. Top
+  questioners (median): KBJackson > Breyer > Kagan/Souter/Gorsuch/Scalia.
 - **No model results yet** — modeling begins in Phase 3.
 
 ## Current Status
 
-- **Completed phases**: Phase 0 (proposal & repo init); Phase 1 Stop A
-  (codebook verification + module implementation + Heien spot-check + tests).
-- **Current phase**: Awaiting Stop A approval before Phase 1 Stop B
-  (bulk-fetch the 2005–2024 window, ~50–70 minutes of API calls).
-- **Blockers**: None. Pending CAI's go-signal for the bulk fetch.
+- **Completed phases**: Phase 0; Phase 1 Stop A; Phase 1 Stop B (bulk fetch +
+  build + analysis).
+- **Current phase**: Awaiting Checkpoint 1 approval before Phase 2 (EDA +
+  inclusion/exclusion decisions + final modeling table).
+- **Blockers**: None.
+
+## Open issues (deferred to Phase 2 cleanup)
+
+- 45 (case, Justice) rows have no SCDB join (0.4%). Concentrated in OT2015.
+  23 Scalia rows = cases decided after his Feb 2016 death where SCDB doesn't
+  record his vote. 17 OConnor + 5 Kagan rows = likely Oyez ↔ SCDB term-encoding
+  mismatch on re-argued cases. Already excluded from labels (NaN partyWinning),
+  but should be dropped from the parquet at the Phase 2 modeling-table stage.
+- 50 fetch failures (3.4% of attempted): 28 non-standard dockets +
+  22 standard-format dockets Oyez doesn't index. Worth one-time triage to
+  manually rescue any high-value cases (e.g., Citizens United at OT2008
+  instead of OT2009?) but not blocking.
 
 ## What's Left
 

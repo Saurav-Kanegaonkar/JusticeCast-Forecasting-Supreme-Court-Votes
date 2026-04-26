@@ -110,9 +110,11 @@ are gitignored — re-fetch via the `src/fetch_*` modules.
       Stop A: codebook says **1 = dissent, 2 = majority** (opposite of my
       Phase 0 assumption). Label formula corrected accordingly. Heien spot-check
       passed end-to-end.
-- [ ] Establish Oyez coverage rate empirically over 2005–2024 in Phase 1.
-      If coverage is solid pre-2005, propose extending the window (CAI
-      explicitly invited this pushback). Deferred to Stop B.
+- [x] ~~Establish Oyez coverage rate empirically over 2005–2024 in Phase 1.~~
+      Stop B: 1,322/1,470 = **89.9% Oyez coverage** for cases at the SCDB
+      docket. Pre-2005 not tested at scale yet (no need; we have ample data
+      already with 10,272 rows). Window extension to be revisited only if
+      Phase 2 EDA shows a data shortage.
 - [ ] Decide unanimity column derivation: SCDB `minVotes == 0` is a
       first-pass; verify against `decisionType` (special vote types).
 
