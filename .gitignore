@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Data — raw cache and large processed artifacts are NOT committed
+data/raw/
+data/processed/
+
+# Secrets / env
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Joblib / model caches
+*.joblib
+*.pkl
+
+# Build / dist
+build/
+dist/

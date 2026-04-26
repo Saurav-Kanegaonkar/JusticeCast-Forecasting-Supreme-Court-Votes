@@ -1,0 +1,30 @@
+# Direct dependencies (unpinned). Pinned versions live in requirements.txt
+# (generated via `pip freeze`).
+
+# Core data + ML
+pandas
+numpy
+scikit-learn>=1.6
+pyarrow            # parquet I/O for pandas
+
+# Fetching
+requests
+beautifulsoup4
+tenacity           # retry with backoff for the Oyez fetcher
+
+# NLP
+nltk
+
+# Caching / persistence
+joblib
+
+# Visualization
+matplotlib
+seaborn
+
+# Notebooks
+jupyterlab
+ipykernel
+
+# Testing
+pytest
