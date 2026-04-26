@@ -1,0 +1,29 @@
+scdb_term,docket,scdb_case_name,rescued,rescue_strategy,rescued_oyez_term,n_audio_sessions,transcripts_fetched,notes
+2006,05-11287,"BRENT RAY BREWER v. NATHANIEL QUARTERMAN, DIRECTOR, TEXAS DEPARTMENT OF CRIMINAL JUSTICE, CORRECTIONAL INSTITUTIONS DIVISION",False,none,,0,0,no candidate matched on term-1 or term+1
+2006,05-7664,REYMUNDO TOLEDO-FLORES v. UNITED STATES,False,none,,0,0,no candidate matched on term-1 or term+1
+2009,08-10495,"JOSEPH E. CORCORAN v. MARK LEVENHAGEN, SUPERINTENDENT, INDIANA STATE PRISON",False,none,,0,0,no candidate matched on term-1 or term+1
+2009,08-205,CITIZENS UNITED v. FEDERAL ELECTION COMMISSION,True,term-1,2008,2,2,matched Citizens United v. Federal Election Commission
+2009,09-5270,ERIC PRESLEY v. GEORGIA,False,none,,0,0,no candidate matched on term-1 or term+1
+2009,09-5731,"MARCUS A. WELLONS v. HILTON HALL, WARDEN",False,none,,0,0,no candidate matched on term-1 or term+1
+2009,09-8854,"DEMARCUS ALI SEARS v. STEPHEN UPTON, WARDEN",False,none,,0,0,no candidate matched on term-1 or term+1
+2009,09-940,UNITED STATES v. JUVENILE MALE,True,term+1,2010,0,0,matched United States v. Juvenile Male but no audio
+2010,10-333,"GARY SWARTHOUT, WARDEN, PETITIONER v. DAMON COOKE.",False,none,,0,0,no candidate matched on term-1 or term+1
+2010,10-797,T. FELKNER v. STEVEN FRANK JACKSON,False,none,,0,0,no candidate matched on term-1 or term+1
+2010,10-91,"BILL K. WILSON, SUPERINTENDENT, INDIANA STATE PRISON, PETITIONER v. JOSEPH E. CORCORAN",False,none,,0,0,no candidate matched on term-1 or term+1
+2012,10-1491,"ESTHER KIOBEL, INDIVIDUALLY AND ON BEHALF OF HER LATE HUSBAND, DR. BARINEM KIOBEL, et al., PETITIONERS v. ROYAL DUTCH PETROLEUM CO. et al.",True,term-1,2011,2,2,matched Kiobel v. Royal Dutch Petroleum
+2017,17-801,in re UNITED STATES,False,none,,0,0,no candidate matched on term-1 or term+1
+2019,18-921,ROMAN CATHOLIC ARCHDIOCESE OF SAN JUAN v. FELICIANO,False,none,,0,0,no candidate matched on term-1 or term+1
+2019,18-9674,ANDRUS v. TEXAS,False,none,,0,0,no candidate matched on term-1 or term+1
+2019,19-5421,DAVIS v. UNITED STATES,False,none,,0,0,no candidate matched on term-1 or term+1
+2020,19-1108,MCKESSON v. DOE,False,none,,0,0,no candidate matched on term-1 or term+1
+2020,19-1261,TAYLOR v. RIOJAS,False,none,,0,0,no candidate matched on term-1 or term+1
+2020,20-1084,DUNN v. REEVES,False,none,,0,0,no candidate matched on term-1 or term+1
+2020,20-1212,PAKDEL v. CITY AND COUNTY OF SAN FRANCISCO,False,none,,0,0,no candidate matched on term-1 or term+1
+2020,20-391,LOMBARDO v. ST. LOUIS,False,none,,0,0,no candidate matched on term-1 or term+1
+2020,20-507,"MAYS, WARDEN v. HINES",False,none,,0,0,no candidate matched on term-1 or term+1
+2020,20-940,ALASKA v. WRIGHT,False,none,,0,0,no candidate matched on term-1 or term+1
+2021,20-1539,RIVAS-VILLEGAS v. CORTESLUNA,False,none,,0,0,no candidate matched on term-1 or term+1
+2021,20-1668,CITY OF TAHLEQUAH v. BOND,False,none,,0,0,no candidate matched on term-1 or term+1
+2024,23-167,HAMM v. SMITH,False,none,,0,0,no candidate matched on term-1 or term+1
+2024,23-6573,ANDREW v. WHITE,False,none,,0,0,no candidate matched on term-1 or term+1
+2024,24-809,GOLDEY v. FIELDS,False,none,,0,0,no candidate matched on term-1 or term+1

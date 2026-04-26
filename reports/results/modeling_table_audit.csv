@@ -1,0 +1,5 @@
+stage,rows_in,rows_out,rows_dropped
+input (justice_case_rows.parquet),10308,10308,0
+after drop NaN-label rows,10308,10137,171
+after drop original-jurisdiction cases,10137,10120,17
+after drop word_count < 30,10120,10039,81
