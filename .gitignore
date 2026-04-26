@@ -18,7 +18,9 @@ env/
 
 # Data — raw cache and large processed artifacts are NOT committed
 data/raw/
-data/processed/
+data/processed/*
+# Exception: the hand-built Justice ID map is small + canonical input; track it
+!data/processed/justice_id_map.csv
 
 # Secrets / env
 .env

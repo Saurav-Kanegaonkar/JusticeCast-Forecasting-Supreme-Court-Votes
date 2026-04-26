@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Checkpoint 0
+Last updated: 2026-04-26 by CC at Phase 1 Stop A
 
 ## Project Context
 
@@ -26,28 +26,80 @@ Last updated: 2026-04-26 by CC at Checkpoint 0
   - Root: `requirements.txt`, `requirements.in`, `README.md`, `CLAUDE.md`,
     `cai-plan.md`, `project-state.md`, `.gitignore`
 
-## What Exists (ground truth — Checkpoint 0)
+## What Exists (ground truth — Phase 1 Stop A)
 
-- Git repo initialized (branch `main`).
-- `.gitignore` excludes `.venv/`, `data/raw/`, `data/processed/`, `.env*`,
-  `.ipynb_checkpoints/`, IDE/OS junk, `*.joblib`, `*.pkl`.
-- Directory scaffold present (empty `data/raw`, `data/processed`, `src/`,
-  `notebooks/`, `reports/results/`, `tests/`). `src/__init__.py` and
-  `tests/__init__.py` placeholders created.
-- `.venv/` created from system Python 3.14.3; deps installed from
-  `requirements.in`; pinned snapshot in `requirements.txt`.
-- **SCDB downloaded once** to `data/raw/SCDB_2025_01_justiceCentered_Citation.csv`
-  (28 MB, 83,644 rows, 61 columns, Latin-1 encoded). Source URL recorded in
-  `CLAUDE.md`. Sample row and column list verified.
-- **Oyez API verified** with smoke-test on Heien v. North Carolina
-  (`cases/2014/13-1314`). Confirmed transcript structure lives at
-  `case_media/oral_argument_audio/{audio_id}` (NOT at the case endpoint —
-  see Key Decisions below).
-- `CLAUDE.md` written (CC working notes — env, data sources, conventions,
-  open questions).
-- `reports/proposal.md` drafted (1-page proposal for the professor).
-- No source modules, notebooks, or tests written yet.
-- No GitHub remote attached yet (will be created at Checkpoint 0 commit).
+### From Phase 0 (carried forward)
+- Git repo on `main`, public GitHub remote at
+  https://github.com/Saurav-Kanegaonkar/JusticeCast-Forecasting-Supreme-Court-Votes
+- `.venv/` (Python 3.14.3), deps pinned in `requirements.txt`
+- Directory scaffold + `cai-plan.md`, `CLAUDE.md`, `README.md`,
+  `reports/proposal.md`
+
+### Added in Phase 1 Stop A
+- **SCDB**: cached at `data/raw/SCDB_2025_01_justiceCentered_Citation.csv`
+  (28 MB, 83,644 rows × 61 cols, Latin-1).
+- **SCDB codebook pages** cached at `data/raw/scdb_codebook/*.html` for
+  `partyWinning`, `majority`, `vote`, `direction`, `caseDisposition`.
+  Field semantics documented in `CLAUDE.md`.
+- **Oyez Heien**: cached at `data/raw/oyez/cases/2014_13-604.json` and
+  `data/raw/oyez/transcripts/23272.json` (1 audio session, 8 Justices spoke,
+  Thomas silent as usual).
+- **Source modules** in `src/`:
+  - `fetch_scdb.py` — download + Latin-1 load, idempotent
+  - `fetch_oyez.py` — 2-step fetch with global ≤1 req/sec rate limiter,
+    `tenacity` exponential backoff (max 5 attempts, retries on 5xx/429/timeout),
+    cache at both layers
+  - `build_dataset.py` — parse cached transcripts → filter to Justices →
+    aggregate per (case, Justice) with multi-audio concatenation →
+    join SCDB → derive `voted_petitioner` + `unanimous` → write parquet
+  - `text_clean.py` — minimal whitespace helper (Phase 2/3 will populate)
+- **`data/processed/justice_id_map.csv`** — hand-built, 16 Justices in the
+  2005–2024 window, ungitignored exception in `.gitignore`. 8 of 16 slugs
+  empirically verified against the Heien transcript; the other 8 follow
+  identical Oyez `firstname_middleinitial_lastname` convention.
+- **`data/processed/justice_case_rows.parquet`** — 8 rows (Heien only)
+  produced end-to-end by the Heien-only smoke pipeline.
+- **Tests** at `tests/test_fetchers.py` + `tests/test_builders.py`,
+  **11 tests passing** (`pytest`):
+  - SCDB shape + Latin-1 encoding
+  - Oyez Step 1 + Step 2 shapes on Heien
+  - Rate limiter timing
+  - Oyez cache idempotency
+  - Label-derivation truth table (4 cases + 3 missing/unclear cases)
+  - Parser filters Justices vs advocates
+  - Heien end-to-end label spot-check (Sotomayor=1, others=0)
+  - Justice→SCDB mapping coverage on Heien
+  - Multi-audio synthetic concatenation
+
+## Codebook-Verified Field Semantics (Phase 1 Stop A)
+
+Source: `scdb.wustl.edu/documentation.php?var=<field>`, cached HTML in
+`data/raw/scdb_codebook/`.
+
+- **`partyWinning`**: 0 = no favorable disposition for petitioner (lost);
+  1 = petitioner received favorable disposition (won); 2 = unclear.
+  Rows with value 2 are EXCLUDED from labels.
+- **`majority`**: **1 = dissent, 2 = majority** (note: this is opposite of
+  CC's Phase 0 assumption). Justice-level only. Missing → did not participate.
+  Rows with NaN are EXCLUDED from labels.
+- **`vote`**: 8 categorical values capturing concurrence types (regular vs
+  special, dissent, jurisdictional, etc.). For our binary label we collapse
+  via `majority`, not `vote` directly.
+- **`direction`**: 1 = conservative, 2 = liberal. Ideological coding —
+  not used in our label (we want `voted_petitioner`, not ideology).
+- **`caseDisposition`**: 11-value taxonomy (affirmed, reversed, vacated, etc.)
+  that already governs `partyWinning`. Per the codebook: *"The entry in this
+  variable governs whether the individual justices voted with the majority or
+  in dissent."* We use `partyWinning` (the derived field) directly.
+
+**Final binary label** (codified in `src/build_dataset.py::derive_voted_petitioner`):
+```python
+voted_petitioner = (partyWinning == 1) == (majority == 2)
+```
+Returns `None` if either field is missing or `partyWinning == 2`.
+
+**Heien spot-check passed**: 8 spoken Justices in the parsed transcript,
+Sotomayor (lone dissent) → 1, all others → 0.
 
 ## Key Decisions Made
 
@@ -80,20 +132,43 @@ Last updated: 2026-04-26 by CC at Checkpoint 0
   Phase 1 fetcher design).
 - **No `Co-Authored-By: Claude` trailer** on commits in this repo
   (user preference, recorded in CC memory).
+- **Phase 1 split into Stop A / Stop B**: codified as Non-Negotiable #10
+  (hand-verify before any irreversible/expensive operation). Stop A
+  produces a Heien-only proof of correctness; Stop B does the bulk fetch
+  only after CAI signs off on Stop A.
+- **Heien is at docket 13-604, NOT 13-1314.** Earlier `cai-plan.md`
+  versions cited 13-1314 as Heien — that's actually *Arizona State
+  Legislature v. AIRC*. Both are OT2014 cases. The mistake was caught at
+  Stop A by SCDB lookup. All tests and smoke probes use the correct docket.
+- **`majority` field encoding is `1=dissent, 2=majority`**, opposite of
+  CC's Phase 0 assumption. Verified against the SCDB codebook in Stop A.
+  Original XNOR formula would have inverted every label. Heien spot-check
+  caught this — exactly what it was designed to do (Non-Negotiable #10
+  was the right call).
 
 ## Metrics / Results So Far
 
-- SCDB: 83,644 vote rows × 61 columns (release 2025_01).
-- Oyez sample case (Heien): ~85–90 turns in the transcript section,
-  with `speaker.roles[].type == "scotus_justice"` flagging Justices.
-- No model results yet — Phase 1 has not begun.
+- **SCDB**: 83,644 vote rows × 61 columns (release 2025_01).
+- **`partyWinning` distribution**: 0=29,819 (35.6%); 1=53,627 (64.1%);
+  2=54 (0.1%); NaN=144 (0.2%). Empirical petitioner-win rate ≈ 64%
+  (matches the ~65–70% expectation in Non-Negotiable #6).
+- **`majority` distribution**: 1=14,709 (17.6%); 2=65,952 (78.9%);
+  NaN=2,983 (3.6%, mostly recusals).
+- **2005–2024 window**: 13,149 justice-vote rows, 1,471 unique cases,
+  1,470 unique (term, docket) pairs (one case has duplicate docket entry).
+- **Heien (2014/13-604) end-to-end**: 8 Justice rows produced, Sotomayor=1,
+  others=0. Word counts range 291 (Breyer) to 1,131 (Scalia). Sotomayor
+  had 20 turns — the most engagement, despite being the lone dissent.
+- **No bulk fetch performed yet** — Stop A is gated on CAI sign-off.
+- **No model results yet** — modeling begins in Phase 3.
 
 ## Current Status
 
-- **Completed phases**: Phase 0 (proposal & repo init).
-- **Current phase**: Awaiting Checkpoint 0 approval before Phase 1
-  (data acquisition / bulk Oyez fetch).
-- **Blockers**: None.
+- **Completed phases**: Phase 0 (proposal & repo init); Phase 1 Stop A
+  (codebook verification + module implementation + Heien spot-check + tests).
+- **Current phase**: Awaiting Stop A approval before Phase 1 Stop B
+  (bulk-fetch the 2005–2024 window, ~50–70 minutes of API calls).
+- **Blockers**: None. Pending CAI's go-signal for the bulk fetch.
 
 ## What's Left
 
@@ -135,8 +210,12 @@ Last updated: 2026-04-26 by CC at Checkpoint 0
 7. Every experiment logged — `reports/results/` CSVs, one row per
    (vectorizer, classifier, hyperparams), with per-fit wall-clock time.
    Notebook reads these CSVs, does not re-run sweeps.
-8. Cache aggressively — Oyez calls cached on disk; SCDB downloaded once.
+8. Cache aggressively — Oyez calls cached on disk (both layers);
+   SCDB downloaded once.
 9. Frame as **Option 1 stance classification**, not sentiment.
+10. Hand-verify before bulk operations — any irreversible/expensive step
+    (bulk API fetch, multi-hour grid search) gets a smoke test on a
+    hand-checked sample first.
 
 ## Definition of Done (carried forward from `cai-plan.md`)
 
