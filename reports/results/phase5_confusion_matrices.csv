@@ -1,0 +1,9 @@
+track,true_label,predicted_label,count
+bow,0,0,386
+bow,0,1,370
+bow,1,0,559
+bow,1,1,692
+embeddings,0,0,423
+embeddings,0,1,333
+embeddings,1,0,574
+embeddings,1,1,677

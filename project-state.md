@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 4.5 Checkpoint 4.5 (embeddings track)
+Last updated: 2026-04-26 by CC at Phase 5 Checkpoint 5 (comparative evaluation)
 
 ## Project Context
 
@@ -602,12 +602,111 @@ same test fold).
   reports/results/comparative_summary.csv         — top-line both winners
   reports/results/comparative_per_justice.csv     — long form, BoW vs emb per Justice
 
+## Phase 5 Comparative Evaluation — The Honesty Triad
+
+Refit both winners on full canonical training fold; compute honesty triad
+on the canonical fold-0 test set.
+
+### The contested-cases test (the strict slice; the headline)
+
+Per Non-Negotiable #13: contested cases (`unanimous == 0`) are the cleanest
+test of true bench-reading signal. On unanimous cases, author-identity-plus-
+priors gets you most of the way; on contested cases, the Justice could
+plausibly vote either way.
+
+Aggregate per-Justice ROC AUC (mean across Justices), by slice:
+
+  slice         BoW    Embeddings    Δ
+  ──────────    ─────  ──────────    ─────
+  unanimous     0.566  0.615         +0.049
+  contested     0.532  0.576         +0.044
+  global        0.554  0.609         +0.055
+
+Per-Justice count above 0.5, by slice:
+
+  slice         BoW       Embeddings
+  ──────────    ──────    ──────────
+  unanimous     11/16     14/16
+  contested      9/15     13/15
+  global        10/16     16/16
+
+**The embedding lift survives the strict test.** On contested cases, the
+mean per-Justice AUC gap is +0.044 — same magnitude as the unanimous slice
+(+0.049). This is the rigorous evidence that pre-trained semantic
+representations recover real bench-questioning signal, not just author-
+identity-plus-priors.
+
+### Per-Justice contested AUC, side by side
+
+  Justice                   BoW    Emb    Lift
+  ─────────────────────     ─────  ─────  ─────
+  clarence_thomas           0.494  0.776  +0.282  ★ silent-Justice signal
+  amy_coney_barrett         0.533  0.741  +0.208
+  brett_m_kavanaugh         0.672  0.694  +0.023
+  ketanji_brown_jackson     0.405  0.643  +0.238  ★ STORY FLIPS
+  samuel_a_alito_jr         0.592  0.621  +0.029
+  antonin_scalia            0.577  0.575  -0.002
+  john_g_roberts_jr         0.506  0.571  +0.066
+  elena_kagan               0.433  0.556  +0.123
+  john_paul_stevens         0.722  0.532  -0.190
+  anthony_m_kennedy         0.653  0.525  -0.128  ↓ swing-justice regression
+  david_h_souter            0.613  0.512  -0.101
+  sonia_sotomayor           0.426  0.507  +0.081
+  neil_gorsuch              0.426  0.504  +0.078
+  stephen_g_breyer          0.505  0.451  -0.054
+  ruth_bader_ginsburg       0.427  0.424  -0.002
+
+**KBJackson on contested-only**: BoW 0.405 (worst on bench, below random)
+→ Embeddings 0.643 (lift +0.238 on the strict test). The deck's centerpiece
+anecdote: same Justice, same data, different representation, opposite
+conclusions about predictability.
+
+### Notebook + standard evaluation suite
+
+`notebooks/02_phase5_comparative.ipynb` (20 cells, 377 KB rendered, verified
+via nbconvert):
+- Top-line +3.7 pp finding with CV-test gap explained
+- Confusion matrices side by side
+- ROC / PR / calibration curves overlaid
+- Honesty-triad section (the centerpiece)
+- Per-Justice contested AUC bar chart (BoW + embeddings)
+- Per-Justice lift over individual baselines
+- Embeddings interpretation via extreme-score utterances
+- Reframed business interpretation (legal-tech product strategy)
+- Honest interpretation pass
+
+### Reframed business interpretation (sharper framing)
+
+The deck's headline is **"a lightweight pre-trained MiniLM (384-dim, ~80MB,
+no fine-tuning) beats a tuned 200K-feature TF-IDF + LinearSVC by 3.7 pp"**
+— sharper than "embeddings beat BoW." For legal-tech product strategy:
+
+- Don't sell a TF-IDF question-classifier. The right product uses pre-trained
+  semantic representations at minimum.
+- Marginal cost over BoW: ~12 minutes of CPU encoding once for a corpus this
+  size. Payoff: access to semantic structure that lexical features cannot reach.
+- Next methodological frontier: sequence-aware models, audio features
+  (tone/pace/hesitation from Oyez .mp3s), integration with structured case
+  features (issue area, lower-court holding, prior voting record).
+- Don't overclaim. AUC 0.569 is still modest. Frame as "lower bound on
+  bench-reading from text alone, before sequence/audio/case-feature
+  integration."
+
+### CV-test gap caveat (carried forward into deck prose)
+
+Embeddings track has a NEGATIVE CV-test gap (-0.029): CV mean ~0.540, test
+0.569. The 0.569 is the test-fold realization; the conservative reading is
+"CV mean ~0.54, test 0.57 on this particular fold." The +3.7 pp BoW-vs-
+embeddings gap is robust because both tracks evaluate on the same test
+fold; the CV underestimate is symmetric noise.
+
 ## Current Status
 
 - **Completed phases**: Phase 0; Phase 1; Phase 2; Phase 3; Phase 3.5;
-  Phase 4 (BoW GridSearchCV); Phase 4.5 (embeddings).
-- **Current phase**: Awaiting Checkpoint 4.5 confirmation, then Phase 5
-  (comparative evaluation + interpretability + honesty triad).
+  Phase 4; Phase 4.5; Phase 5 (comparative evaluation).
+- **Current phase**: Awaiting Checkpoint 5 confirmation, then Phase 6 (ML
+  Canvas + final notebook polish + README + Restart-and-Run-All check),
+  then Phase 7 (8-12 slide pitch deck).
 - **Blockers**: None.
 
 ## What's Left
