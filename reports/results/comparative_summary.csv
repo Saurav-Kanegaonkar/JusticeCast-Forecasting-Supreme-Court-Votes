@@ -1,0 +1,3 @@
+track,representation,classifier,best_params,cv_roc_auc,test_roc_auc,test_balanced_accuracy,test_accuracy,test_f1,cv_test_gap
+BoW,TF-IDF unigram + custom stopwords + advocate-name preprocessor,linear_svc,"{'clf__C': 0.01, 'vect__max_df': 0.9, 'vect__min_df': 5, 'vect__ngram_range': (1, 1)}",0.5402112338571173,0.532296913791718,0.5318697423013969,0.5371200797209765,0.598357111975789,0.0079143200653993
+Embeddings,"all-MiniLM-L6-v2 (384-dim, pre-trained, no fine-tune)",logreg,"{'C': 100, 'l1_ratio': 1.0}",0.5398234550878901,0.5691066194663317,0.550345437935366,0.5480817140009965,0.5988500663423264,-0.0292831643784415

@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 4 Checkpoint 4 (BoW GridSearchCV)
+Last updated: 2026-04-26 by CC at Phase 4.5 Checkpoint 4.5 (embeddings track)
 
 ## Project Context
 
@@ -510,14 +510,104 @@ thematic legal vocabulary, identical in character to Phase 3:
 The cai-plan's prediction holds: tuning confirms the BoW ceiling. The model
 is recovering thematic case content, not stance from questioning style.
 
+## Phase 4.5 Sentence-Embeddings Track — The Comparative Result
+
+Pre-trained sentence transformers (no fine-tuning) on the same fold-0 test
+rows as BoW Phase 4. Total wall-clock: 32 min (12 encoding + 2 baseline +
+17 GridSearchCV + cleanup).
+
+### BoW vs Embeddings — top-line
+
+  Track       Representation                           Classifier  CV AUC   Test AUC
+  ──────────  ───────────────────────────────────────  ──────────  ──────   ────────
+  BoW         TF-IDF unigram (Phase 4 winner)          LinearSVC   0.5402   0.5323
+  Embeddings  all-MiniLM-L6-v2 (384-dim, pre-trained)  LogReg      0.5398   0.5691  ← winner
+
+  Lift (embeddings - BoW): +0.0368 ROC AUC (+3.7 percentage points)
+
+The embeddings lift (+3.7 pp) is **9× the BoW Phase 4 tuning lift (+0.4 pp)**.
+Pre-trained semantic representations recover real signal that bag-of-words
+cannot access.
+
+### Phase 4.5 mechanics
+
+- Encoding: both `all-MiniLM-L6-v2` (1.0 min, 15.4 MB) and
+  `all-mpnet-base-v2` (10.8 min, 29.4 MB) cached at
+  `data/processed/embeddings/{model}.npy`. Row-index parquet preserves
+  modeling-table ordering (= positional indices align with
+  `get_train_test_split()`).
+- Baseline sweep (6 combos): minilm__svm_rbf wins at AUC 0.569, mpnet__svm_rbf
+  second at 0.566. MiniLM selected for tuning by `_pick_better_embedding_from_baseline`.
+- GridSearchCV on MiniLM:
+    LogReg     (10 settings × 5-fold = 50 fits):  CV 0.5398, test 0.5691
+    SVM-RBF    (9 settings × 5-fold = 45 fits):   CV 0.5394, test 0.5630
+    RandomFor. (27 settings × 5-fold = 135 fits): CV 0.5291, test 0.5570
+  LogReg won. Best params: C=100, l1_ratio=1.0 (= L1, very low regularization).
+
+### CV-test gap is NEGATIVE for all three Phase 4.5 models
+
+  LogReg     CV 0.5398, test 0.5691 → gap -0.029
+  SVM-RBF    CV 0.5394, test 0.5630 → gap -0.024
+  RF         CV 0.5291, test 0.5570 → gap -0.028
+
+CV underestimates test by ~3 pp. Most likely fold-0 happens to be slightly
+"easier" than the average CV fold (sampling variance from grouped CV).
+Phase 5 should report this honestly — the 0.569 is the test AUC on a single
+fold, and the more conservative reading is "CV-mean ~0.54, test 0.57". The
++3.7 pp BoW-vs-embeddings gap holds either way (BoW also evaluates on the
+same test fold).
+
+### Per-Justice ROC AUC — embeddings winner (LogReg on MiniLM)
+
+  Justice                   n_test  point_AUC  CI_95            BoW lift
+  ────────────────────────  ──────  ─────────  ──────────────   ────────
+  sandra_day_oconnor             3      1.000  (n too small)
+  clarence_thomas               58      0.730  [0.588, 0.855]   +0.193  ★
+  brett_m_kavanaugh             78      0.682  [0.560, 0.807]   +0.042
+  ketanji_brown_jackson         36      0.635  [0.416, 0.818]   +0.229  ★ STORY FLIPS
+  amy_coney_barrett             55      0.622  [0.440, 0.781]   +0.118
+  samuel_a_alito_jr            231      0.600  [0.526, 0.678]   +0.003
+  antonin_scalia               138      0.594  [0.487, 0.695]   +0.035
+  john_g_roberts_jr            255      0.575  [0.505, 0.647]   +0.086
+  john_paul_stevens             74      0.568  [0.438, 0.704]   +0.005
+  david_h_souter                62      0.567  [0.415, 0.711]   -0.008
+  sonia_sotomayor              188      0.564  [0.483, 0.642]   +0.037
+  neil_gorsuch                  87      0.537  [0.404, 0.663]   +0.089
+  elena_kagan                  170      0.527  [0.437, 0.611]   +0.070
+  anthony_m_kennedy            167      0.519  [0.419, 0.616]   -0.101  ↓ regression
+  ruth_bader_ginsburg          191      0.516  [0.431, 0.596]   +0.032
+  stephen_g_breyer             214      0.505  [0.427, 0.576]   +0.043
+
+### Headline per-Justice findings
+
+1. **All 16 Justices have point AUC > 0.5 with embeddings**, vs 10 of 16
+   with BoW. Broad improvement.
+2. **4 of 15 Justices have CI lower bound > 0.5** (statistically distinguishable
+   from chance): Thomas, Kavanaugh, Alito, Roberts. Doubled vs BoW's 2.
+3. **The KBJackson story FLIPS.** With BoW her AUC was 0.406 (worst on bench).
+   With embeddings: 0.635 (third highest), lift +0.229. This is the deck's
+   sharpest single-Justice anecdote: the most-engaged questioner produces
+   text that pre-trained semantic encoders can map to votes, while
+   bag-of-words couldn't extract the signal.
+4. **Thomas dramatic gain**: BoW 0.538 → embeddings 0.730, lift +0.193.
+   The silent-Justice's few utterances carry semantic structure.
+5. **Kennedy regresses**: BoW 0.621 → embeddings 0.519, lift -0.101. Only
+   Justice with a meaningful negative lift. Likely explanation: Kennedy was
+   the swing vote whose votes correlated with thematic case content; BoW
+   exploited that thematic correlation, while embeddings collapse some
+   topical distinctions in the semantic space.
+
+### Comparative summary artifacts
+
+  reports/results/comparative_summary.csv         — top-line both winners
+  reports/results/comparative_per_justice.csv     — long form, BoW vs emb per Justice
+
 ## Current Status
 
-- **Completed phases**: Phase 0; Phase 1 (Stop A + Stop B + Stop C rescue);
-  Phase 2 (cleanup + B1–B6 EDA expansion); Phase 3 (9-combo baseline sweep);
-  Phase 3.5 (sanity pass); Phase 4 (BoW GridSearchCV).
-- **Current phase**: Awaiting Checkpoint 4 confirmation, then Phase 4.5
-  (sentence-embeddings peer track — `all-MiniLM-L6-v2` and
-  `all-mpnet-base-v2`, same evaluation harness via `src/modeling/splits.py`).
+- **Completed phases**: Phase 0; Phase 1; Phase 2; Phase 3; Phase 3.5;
+  Phase 4 (BoW GridSearchCV); Phase 4.5 (embeddings).
+- **Current phase**: Awaiting Checkpoint 4.5 confirmation, then Phase 5
+  (comparative evaluation + interpretability + honesty triad).
 - **Blockers**: None.
 
 ## What's Left

@@ -28,3 +28,7 @@ ipykernel
 
 # Testing
 pytest
+
+# Phase 4.5 — sentence-transformer embeddings (CPU only)
+sentence-transformers
+torch
