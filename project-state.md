@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 2 Checkpoint 2 (reopened — B1–B6 EDA expansion)
+Last updated: 2026-04-26 by CC at Phase 3 Checkpoint 3 (baseline sweep)
 
 ## Project Context
 
@@ -266,16 +266,110 @@ tasks landed:
   thematic-vocab non-overstrip)
 - 25 pytest tests total, all green
 
+## Phase 3 Baseline Sweep — Major Empirical Finding
+
+**Headline:** all 9 (vectorizer × classifier) combinations produce ROC AUC
+in the range **0.507–0.528** — essentially chance. The bench-questioning
+text does not contain enough signal to reliably predict petitioner-vote
+stance at the modeling task as currently framed.
+
+### Baseline results (sorted by ROC AUC)
+
+  combo                            accuracy  bal_acc  ROC AUC  F1     n_features
+  tfidf_bigram__logreg             0.539     0.512    0.528    0.627  202,559
+  tfidf_unigram__logreg            0.537     0.519    0.526    0.615   29,594
+  tfidf_bigram__linear_svc         0.547     0.506    0.524    0.649  202,559
+  tfidf_unigram__linear_svc        0.537     0.513    0.522    0.621   29,594
+  bow_unigram__logreg              0.542     0.520    0.521    0.624   29,594
+  bow_unigram__linear_svc          0.548     0.524    0.519    0.630   29,594
+  tfidf_bigram__random_forest      0.624     0.506    0.512    0.765  202,559
+  bow_unigram__random_forest       0.620     0.501    0.509    0.764   29,594
+  tfidf_unigram__random_forest     0.626     0.509    0.507    0.766   29,594
+
+**RF rows show the class-prior trap**: 62.4% accuracy by predicting
+near-majority almost always (balanced_accuracy ~0.5, ROC AUC ~0.5).
+
+### Per-Justice lift over individual baselines (Non-Negotiable #12)
+
+For the best linear combo (`tfidf_bigram__logreg`):
+- **POSITIVE lift on only 1 of 16 Justices** (O'Connor, n_test=3, statistically meaningless)
+- For the other 15 Justices, the model performs **WORSE** than predicting
+  their majority class
+- Worst affected: ACBarrett (-18.6 pp), KBJackson (-15.4 pp), Ginsburg (-13.7 pp)
+- Median lift: -7.3 pp; mean lift: -7.4 pp
+
+The least-bad combo on per-Justice lift is `tfidf_unigram__random_forest`
+with median lift +0.0003 (essentially zero) and 8 of 16 Justices with
+positive lift — but its ROC AUC is the lowest at 0.507.
+
+### Top features for best linear model (vs B1 EDA pre-stopwording)
+
+The custom stopword list filtered the obvious topic terms (state names,
+agency abbreviations, famous case shortnames) but **thematic legal
+vocabulary became the new topic-proxy** — exactly the second outcome the
+cai-plan predicted.
+
+Top petitioner-side features: `officer`, `misleading`, `arrest`, `attorney`,
+`profits`, `circuit`, `standing`, `religious`, `church`, `bankruptcy`,
+`prison`, `rehabilitation`, `discrimination`. These overlap heavily with
+the B1 pre-stopwording top list (officer, religious, arrest, church remain
+in the top 30).
+
+Top respondent-side features: `evidence`, `delegation`, `petition`, `hours`,
+`insurance`, `fraud`, `jury`, `sentence`, `discovery`, `indian`, `trial`,
+`grand jury`, `discharge`, `government`, `school`, `burglary`, `conspiracy`.
+B1 respondent terms (sentencing, sentence, jury, school, indian, conspiracy)
+all retained.
+
+**Two leakage findings within top features**: `frederick`/`mr frederick`
+and `fisher`/`mr fisher` are advocate names from MORSE v. FREDERICK and
+FISHER v. UNIVERSITY OF TEXAS. Justices addressing advocates by name leaks
+case identity into the text. A second-pass stopword expansion would add
+common advocate forms (`mr X`, `ms X`, `general X`) — proposed for Phase
+4 vectorizer config, not blocking.
+
+### What this means for the project
+
+The project hypothesis ("we can read the bench from oral-argument text")
+is **not strongly supported by these baselines**. AUC 0.51–0.53 means the
+text-only model is essentially uninformative. Three real possibilities:
+
+1. **The signal is genuinely weak.** Justices' questions are tactical —
+   they often grill the side they're sympathetic to (legal scholarship has
+   noted this). Oral argument may contain less stance signal than litigators
+   believe.
+2. **The signal exists but requires more than bag-of-words.** Sequence
+   models (BERT-style embeddings) might recover signal that TF-IDF + linear
+   classifiers cannot. Out of scope for this rubric.
+3. **Phase 4 hyperparameter tuning could lift AUC by 1–3 percentage
+   points.** Unlikely to break above ~0.55 without a method change.
+
+This is a real finding, not a bug. Phase 5 will frame it honestly via
+Non-Negotiable #13 (per-Justice contested-cases ROC AUC) and the cai-plan
+"honesty pass". Phase 7 pitch deck pivots from prediction-as-product to
+"empirical lower bound on bench-reading from text alone".
+
+### Phase 4 compute budget (extrapolated from baseline timings)
+
+  Stage 4A (linear with vectorizer grid):
+    LogReg 10 × vec 12 × 5-fold CV = 600 fits × ~1.5s = ~15 min sequential
+                                                         ~5 min with n_jobs=-1
+    SVM    4 × vec 12 × 5-fold CV  = 240 fits × ~1.5s = ~6 min sequential
+                                                         ~2 min with n_jobs=-1
+  Stage 4B (RF, fixed vectorizer):
+    27 RF configs × 5-fold CV = 135 fits × ~4-15s = ~10-30 min
+  TOTAL realistic wall-clock:                       ~45-60 min
+
 ## Current Status
 
-- **Completed phases**: Phase 0; Phase 1 Stop A; Phase 1 Stop B (bulk fetch);
-  Stop C (rescue, +Citizens United); Phase 2A (cleanup + initial EDA +
-  modeling table); Phase 2B (B1–B6 EDA expansion + preprocessor + custom
-  stopwords + parquet rebuild).
-- **Current phase**: Awaiting reopened Checkpoint 2 approval before Phase 3
-  (baseline sweep). Phase 3 vectorizers must consume
-  `STOPWORDS_FOR_VECTORIZER` from `src/text_clean.py`.
-- **Blockers**: None.
+- **Completed phases**: Phase 0; Phase 1 (Stop A + Stop B + Stop C rescue);
+  Phase 2 (cleanup + B1–B6 EDA expansion); Phase 3 (9-combo baseline sweep).
+- **Current phase**: Awaiting Checkpoint 3 approval before Phase 4
+  (sequential GridSearchCV — Stage 4A linear + vectorizer joint, then
+  Stage 4B RF with fixed vectorizer).
+- **Blockers**: None mechanical. The headline empirical finding (chance-level
+  AUC across all 9 baselines) reshapes Phase 5 framing but does not block
+  Phase 4 — tuning is still appropriate to confirm the ceiling.
 
 ## What's Left
 

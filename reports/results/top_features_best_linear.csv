@@ -1,0 +1,61 @@
+combo_id,rank,direction,feature,coefficient
+tfidf_bigram__logreg,1,petitioner (positive),officer,1.7652794252724442
+tfidf_bigram__logreg,2,petitioner (positive),misleading,1.4506009538572333
+tfidf_bigram__logreg,3,petitioner (positive),arrest,1.4226634039402677
+tfidf_bigram__logreg,4,petitioner (positive),attorney,1.4089471418032296
+tfidf_bigram__logreg,5,petitioner (positive),profits,1.397353143007265
+tfidf_bigram__logreg,6,petitioner (positive),circuit,1.2742575507438585
+tfidf_bigram__logreg,7,petitioner (positive),standing,1.2000504144535793
+tfidf_bigram__logreg,8,petitioner (positive),religious,1.1866860546376752
+tfidf_bigram__logreg,9,petitioner (positive),plan,1.11046849797699
+tfidf_bigram__logreg,10,petitioner (positive),hypothetical,1.0661271993315484
+tfidf_bigram__logreg,11,petitioner (positive),church,1.058886752618692
+tfidf_bigram__logreg,12,petitioner (positive),standard,1.0359386657659069
+tfidf_bigram__logreg,13,petitioner (positive),taking,1.0157882906318472
+tfidf_bigram__logreg,14,petitioner (positive),factor,1.0156297028777492
+tfidf_bigram__logreg,15,petitioner (positive),need,1.0127633491541868
+tfidf_bigram__logreg,16,petitioner (positive),bankruptcy,1.0027760068239668
+tfidf_bigram__logreg,17,petitioner (positive),motion,0.9988756113106114
+tfidf_bigram__logreg,18,petitioner (positive),know,0.9964402358954649
+tfidf_bigram__logreg,19,petitioner (positive),prison,0.9935756309519256
+tfidf_bigram__logreg,20,petitioner (positive),rehabilitation,0.9671480172892293
+tfidf_bigram__logreg,21,petitioner (positive),guilty,0.9400054711742368
+tfidf_bigram__logreg,22,petitioner (positive),site,0.897976926096698
+tfidf_bigram__logreg,23,petitioner (positive),frederick,0.8976004161006955
+tfidf_bigram__logreg,24,petitioner (positive),ninth circuit,0.8936599639653549
+tfidf_bigram__logreg,25,petitioner (positive),mr frederick,0.8836298761006446
+tfidf_bigram__logreg,26,petitioner (positive),range,0.8815571706098294
+tfidf_bigram__logreg,27,petitioner (positive),discrimination,0.87930451374092
+tfidf_bigram__logreg,28,petitioner (positive),category,0.8751838407626104
+tfidf_bigram__logreg,29,petitioner (positive),price,0.8727754273548414
+tfidf_bigram__logreg,30,petitioner (positive),difficult,0.8656095615405776
+tfidf_bigram__logreg,1,respondent (negative),evidence,-1.4161562670052539
+tfidf_bigram__logreg,2,respondent (negative),delegation,-1.4000793954313064
+tfidf_bigram__logreg,3,respondent (negative),petition,-1.3736548062995304
+tfidf_bigram__logreg,4,respondent (negative),hours,-1.323213087675487
+tfidf_bigram__logreg,5,respondent (negative),insurance,-1.3192940089823864
+tfidf_bigram__logreg,6,respondent (negative),fraud,-1.2593969474519457
+tfidf_bigram__logreg,7,respondent (negative),jury,-1.2159706372766
+tfidf_bigram__logreg,8,respondent (negative),sentence,-1.198792309559562
+tfidf_bigram__logreg,9,respondent (negative),records,-1.1913138276067232
+tfidf_bigram__logreg,10,respondent (negative),discovery,-1.1701207591639973
+tfidf_bigram__logreg,11,respondent (negative),indian,-1.1629515419315837
+tfidf_bigram__logreg,12,respondent (negative),trial,-1.1462165799592454
+tfidf_bigram__logreg,13,respondent (negative),grand jury,-1.1447620714381896
+tfidf_bigram__logreg,14,respondent (negative),discharge,-1.1236575930834083
+tfidf_bigram__logreg,15,respondent (negative),actual knowledge,-1.1079786533355551
+tfidf_bigram__logreg,16,respondent (negative),government,-1.1041150337275865
+tfidf_bigram__logreg,17,respondent (negative),fisher,-1.1016307459569334
+tfidf_bigram__logreg,18,respondent (negative),percent,-1.0945169898649494
+tfidf_bigram__logreg,19,respondent (negative),10,-1.08515131621848
+tfidf_bigram__logreg,20,respondent (negative),error,-1.083051097971448
+tfidf_bigram__logreg,21,respondent (negative),old,-1.0806131632454832
+tfidf_bigram__logreg,22,respondent (negative),burglary,-1.078694863366191
+tfidf_bigram__logreg,23,respondent (negative),conspiracy,-1.077425458800574
+tfidf_bigram__logreg,24,respondent (negative),clothes,-1.0743009045163963
+tfidf_bigram__logreg,25,respondent (negative),year,-1.0475335107447006
+tfidf_bigram__logreg,26,respondent (negative),auction,-1.0406896181209933
+tfidf_bigram__logreg,27,respondent (negative),let,-1.0333770996673493
+tfidf_bigram__logreg,28,respondent (negative),school,-1.0327635920784983
+tfidf_bigram__logreg,29,respondent (negative),conflict,-1.0287109576736564
+tfidf_bigram__logreg,30,respondent (negative),mr fisher,-1.0222846945893453
