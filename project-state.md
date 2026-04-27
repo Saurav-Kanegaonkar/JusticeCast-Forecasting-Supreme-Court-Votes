@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 3.5 Checkpoint 3.5 (sanity pass)
+Last updated: 2026-04-26 by CC at Phase 4 Checkpoint 4 (BoW GridSearchCV)
 
 ## Project Context
 
@@ -431,14 +431,93 @@ transformer embeddings). Phase 4 (BoW tuning) and Phase 4.5 (embeddings)
 proceed with checkpoints between, sharing identical splits via
 `src/modeling/splits.py` (Phase 4.5 setup task).
 
+## Phase 4 BoW GridSearchCV — Tuning Confirms the Ceiling
+
+Wall-clock: **6.9 minutes** (Stage 4A 3.8 min + Stage 4B 3.0 min). Way under
+the 60-90 min budget thanks to `n_jobs=4` + Pipeline memory caching (the
+first attempt with `n_jobs=-1` OOM'd the system; second attempt with safer
+parallelism completed cleanly).
+
+### Tuning result vs Phase 3 baseline
+
+  Model         Phase 3 (untuned)    Phase 4 (tuned 5-fold CV)    Phase 4 test
+  ─────────     ─────────────────    ─────────────────────────    ────────────
+  LinearSVC     0.524                0.5402  ± fold std            0.5323  ← winner
+  LogReg        0.528                0.5401                         0.5317
+  RandomForest  0.512                0.5337                         0.5215
+
+Test AUC moved **0.528 → 0.5323 (+0.4 pp)** — exactly the "1-3 pp ceiling"
+the cai-plan predicted. CV-test gap is small (~0.008), so no overfitting.
+
+### Best hyperparameters
+
+  LinearSVC (winner):  C=0.01 (heavy regularization)
+                       vec: min_df=5, max_df=0.9, ngram_range=(1,1)  ← UNIGRAMS
+  LogReg:              C=0.1, l1_ratio=0.0 (L2)
+                       vec: min_df=5, max_df=0.9, ngram_range=(1,1)
+  RandomForest:        n_estimators=500, max_depth=50, min_samples_split=10
+                       vec inherited from Stage 4A winner (unigrams)
+
+**Notable**: bigrams and trigrams added nothing — both linear winners landed
+on `ngram_range=(1,1)`. The signal is in individual words, not phrases.
+SVM picked maximum L2 regularization (C=0.01), which on a 200K-feature
+sparse problem confirms the signal is so weak that almost any flexibility
+overfits.
+
+### Per-Justice AUC with bootstrap CIs (winner: linear_svc)
+
+  Justice               n_test  point_AUC  CI_95
+  ─────────────────────  ─────  ─────────  ───────────
+  sandra_day_oconnor          3      1.000  (n too small)
+  brett_m_kavanaugh          78      0.640  [0.498, 0.781]   borderline
+  anthony_m_kennedy         167      0.621  [0.528, 0.705]   ★ above chance
+  samuel_a_alito_jr         231      0.598  [0.517, 0.669]   ★ above chance
+  david_h_souter             62      0.576  [0.417, 0.720]
+  john_paul_stevens          74      0.562  [0.421, 0.692]
+  antonin_scalia            138      0.558  [0.449, 0.672]
+  clarence_thomas            58      0.538  [0.386, 0.675]
+  sonia_sotomayor           188      0.527  [0.442, 0.608]
+  amy_coney_barrett          55      0.504  [0.349, 0.664]
+  john_g_roberts_jr         255      0.489  [0.417, 0.557]
+  ruth_bader_ginsburg       191      0.483  [0.400, 0.566]
+  stephen_g_breyer          214      0.462  [0.377, 0.547]
+  elena_kagan               170      0.458  [0.365, 0.549]
+  neil_gorsuch               87      0.448  [0.317, 0.575]
+  ketanji_brown_jackson      36      0.406  [0.223, 0.598]
+
+**Only 2 of 15 Justices** (Kennedy and Alito) have a bootstrap 95% CI lower
+bound above 0.5 — i.e., the model is statistically distinguishable from
+chance only for those two. For the other 13, the model's per-Justice AUC
+is consistent with random.
+
+**Inverse story for KBJackson** (the cai-plan storytelling hook): she's the
+most-engaged questioner (median 1,205 words/case), but her per-Justice AUC
+is the *lowest* (0.406) — chattiness does NOT translate to predictability.
+This is a clean finding for the Phase 7 deck.
+
+### Top features (linear_svc tuned)
+
+After all preprocessing and tuning, the top-30 ± features are still
+thematic legal vocabulary, identical in character to Phase 3:
+
+  Petitioner-side: officer, circuit, attorney, arrest, know, plan,
+                   misleading, counsel, ninth, religious, profits, standard,
+                   say, standing, discrimination
+  Respondent-side: jury, evidence, government, trial, sentence, percent,
+                   petition, error, fraud, insurance, 10, year, indian,
+                   expenses, hours
+
+The cai-plan's prediction holds: tuning confirms the BoW ceiling. The model
+is recovering thematic case content, not stance from questioning style.
+
 ## Current Status
 
 - **Completed phases**: Phase 0; Phase 1 (Stop A + Stop B + Stop C rescue);
   Phase 2 (cleanup + B1–B6 EDA expansion); Phase 3 (9-combo baseline sweep);
-  Phase 3.5 (label re-verification + advocate-name preprocessor).
-- **Current phase**: Awaiting Checkpoint 3.5 confirmation, then proceeding
-  through Phase 4 (BoW GridSearchCV) and Phase 4.5 (sentence-embeddings
-  peer track) with checkpoints between.
+  Phase 3.5 (sanity pass); Phase 4 (BoW GridSearchCV).
+- **Current phase**: Awaiting Checkpoint 4 confirmation, then Phase 4.5
+  (sentence-embeddings peer track — `all-MiniLM-L6-v2` and
+  `all-mpnet-base-v2`, same evaluation harness via `src/modeling/splits.py`).
 - **Blockers**: None.
 
 ## What's Left

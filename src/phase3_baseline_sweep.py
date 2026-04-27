@@ -36,10 +36,10 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
+from src.modeling.splits import get_train_test_split, RANDOM_STATE as SHARED_RANDOM_STATE
 from src.text_clean import STOPWORDS_FOR_VECTORIZER, vectorizer_preprocessor
 
 MODELING_TABLE_PATH = Path("data/processed/modeling_table.parquet")
@@ -47,7 +47,7 @@ BASELINE_RESULTS_PATH = Path("reports/results/baseline_results.csv")
 PER_JUSTICE_LIFT_PATH = Path("reports/results/per_justice_lift.csv")
 TOP_FEATURES_PATH = Path("reports/results/top_features_best_linear.csv")
 
-RANDOM_STATE = 42
+RANDOM_STATE = SHARED_RANDOM_STATE  # Non-Negotiable #5 + #15: same seed everywhere
 
 logger = logging.getLogger(__name__)
 
@@ -248,38 +248,20 @@ def main() -> None:
         format="%(asctime)s %(levelname)s: %(message)s",
     )
 
-    df = pd.read_parquet(MODELING_TABLE_PATH).reset_index(drop=True)
+    df = pd.read_parquet(MODELING_TABLE_PATH)
     logger.info("Loaded %s — %d rows × %d cols",
                 MODELING_TABLE_PATH, *df.shape)
 
-    X = df["text"]
-    y = df["voted_petitioner"].astype(int).values
-    groups = df["caseId"].values
+    # Canonical split lives in src/modeling/splits.py (Non-Negotiable #15:
+    # both BoW and embeddings tracks consume the same fold-0 test rows).
+    split = get_train_test_split(df)
+    X_train, y_train = split.train_df["text"], split.y_train
+    X_test, y_test = split.test_df["text"], split.y_test
+    train_df, test_df = split.train_df, split.test_df
 
-    # Single train/test split: fold 0 = test, folds 1–4 = train.
-    sgkf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
-    splits = list(sgkf.split(X, y, groups=groups))
-    test_idx, train_idx = splits[0][1], splits[0][0]
-    # Wait — convention is (train, test) per fold; fold 0 means "first fold
-    # is the test set". Map accordingly.
-    train_idx, test_idx = splits[0][0], splits[0][1]
-
-    X_train, y_train = X.iloc[train_idx], y[train_idx]
-    X_test, y_test = X.iloc[test_idx], y[test_idx]
-    train_df = df.iloc[train_idx].reset_index(drop=True)
-    test_df = df.iloc[test_idx].reset_index(drop=True)
-
-    # Sanity: case_id leakage check
-    train_cases = set(train_df["caseId"])
-    test_cases = set(test_df["caseId"])
-    overlap = train_cases & test_cases
-    if overlap:
-        raise RuntimeError(
-            f"DATA LEAKAGE: {len(overlap)} caseIds overlap between train and test. "
-            f"Group split is broken."
-        )
     logger.info("Train: %d rows / %d cases. Test: %d rows / %d cases. Leakage: 0.",
-                len(train_df), len(train_cases), len(test_df), len(test_cases))
+                len(train_df), len(set(train_df["caseId"])),
+                len(test_df), len(set(test_df["caseId"])))
     logger.info("Train petitioner-rate: %.3f. Test petitioner-rate: %.3f.",
                 y_train.mean(), y_test.mean())
 
