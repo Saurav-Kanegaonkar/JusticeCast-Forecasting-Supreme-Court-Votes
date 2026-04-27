@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 5 Checkpoint 5 (comparative evaluation)
+Last updated: 2026-04-26 by CC at Phase 6 Checkpoint 6 (CRISP-DM submission deliverables)
 
 ## Project Context
 
@@ -700,13 +700,82 @@ Embeddings track has a NEGATIVE CV-test gap (-0.029): CV mean ~0.540, test
 embeddings gap is robust because both tracks evaluate on the same test
 fold; the CV underestimate is symmetric noise.
 
+## Phase 6 — CRISP-DM-structured submission deliverables
+
+Per Non-Negotiable #16: CRISP-DM is the visible structure of the submission
+notebook. Six top-level section headers matching the six CRISP-DM phases,
+each opening with a one-sentence framing line in italics so the grader sees
+the framework explicitly.
+
+### 6.1 — `notebooks/JusticeCast_Final.ipynb`
+
+The Canvas submission notebook. 78 cells, 584 KB rendered. Six CRISP-DM
+top-level sections:
+
+  1. Business Understanding   (project framing, success criteria, stakeholders, FN/FP cost, rubric mapping)
+  2. Data Understanding       (sources, flow diagram, coverage profile, data quality findings, B1-B6 highlights)
+  3. Data Preparation         (label derivation + Heien spot-check, multi-audio aggregation, Justice ID map, cleanup decisions, train/test split discipline, BoW + embeddings feature design)
+  4. Modeling                 (Track 1 BoW baseline + GridSearchCV; Track 2 embeddings baseline + GridSearchCV; compute discipline)
+  5. Model Evaluation         (comparative summary, standard metrics suite, per-Justice lift, honesty triad with KBJackson centerpiece, what each track learned, business-criteria check, honest interpretation)
+  6. Model Deployment         (deployment plan, operating model, monitoring cadence, ongoing support, methodological frontier, reproducibility)
+
+Reads pre-computed CSVs from `reports/results/` and cached embeddings from
+`data/processed/embeddings/` — does NOT re-run modeling. Restart-and-Run-All
+completes in seconds on a fresh kernel.
+
+`build_final_notebook.py` regenerates the notebook from source (mirrors the
+pattern used for `02_phase5_comparative.ipynb`).
+
+### 6.2 — `reports/ml_canvas.pdf`
+
+Machine Learning Canvas v0.4. 12 boxes arranged in 4 columns × 3 rows with
+a Goal header. Each box explicitly tagged with its corresponding CRISP-DM
+phase in italic caption per Non-Negotiable #16. 57 KB PDF rendered via
+`src/build_ml_canvas.py` (matplotlib + PdfPages).
+
+Box-to-CRISP-DM mapping:
+
+  Goal                                        Business Understanding
+  Decisions                                   Business Understanding
+  ML Task                                     Modeling
+  Value Propositions                          Business Understanding
+  Stakeholders                                Business Understanding
+  Data Sources                                Data Understanding
+  Collecting Data                             Data Understanding
+  Features                                    Data Preparation
+  Building Models                             Modeling
+  Offline Evaluation                          Model Evaluation
+  Headline Result                             Model Evaluation
+  Making Predictions                          Modeling
+  Live Evaluation & Monitoring                Model Deployment
+
+### 6.3 — `README.md` polished
+
+- One-line description with CRISP-DM framing.
+- Headline finding (one paragraph): the +3.7 pp BoW vs Embeddings gap, the
+  contested-cases survival, the KBJackson flip.
+- Method overview table mapping CRISP-DM phases to notebook sections.
+- Reproduce-from-fresh-clone instructions (full pipeline ~95 min, dominated
+  by 54-min Oyez bulk fetch; cached re-runs ~30 min).
+- Repo layout with src/, notebooks/, reports/, tests/ tree.
+
+### 6.4 — Final reproducibility check
+
+  pytest:                                            90 tests passing
+  notebooks/JusticeCast_Final.ipynb:                 Restart-Run-All clean (584 KB)
+  notebooks/01_eda.ipynb:                            Restart-Run-All clean (650 KB)
+  notebooks/02_phase5_comparative.ipynb:             Restart-Run-All clean (377 KB)
+  reports/ml_canvas.pdf:                             present (57 KB)
+
+All checks via `nbconvert --execute` from project root.
+
 ## Current Status
 
 - **Completed phases**: Phase 0; Phase 1; Phase 2; Phase 3; Phase 3.5;
-  Phase 4; Phase 4.5; Phase 5 (comparative evaluation).
-- **Current phase**: Awaiting Checkpoint 5 confirmation, then Phase 6 (ML
-  Canvas + final notebook polish + README + Restart-and-Run-All check),
-  then Phase 7 (8-12 slide pitch deck).
+  Phase 4; Phase 4.5; Phase 5; Phase 6 (CRISP-DM submission deliverables).
+- **Current phase**: Awaiting Checkpoint 6 confirmation, then Phase 7
+  (8-12 slide pitch deck with KBJackson centerpiece + Citizens United arc
+  + lightweight-MiniLM framing + contested-cases test as headline).
 - **Blockers**: None.
 
 ## What's Left
