@@ -82,3 +82,49 @@ def test_stopwords_is_a_list_not_a_set():
     assert text_clean.STOPWORDS_FOR_VECTORIZER == sorted(
         text_clean.STOPWORDS_FOR_VECTORIZER
     )
+
+
+# ---- vectorizer_preprocessor (Phase 3.5: advocate-name stripping) ----
+
+def test_vectorizer_preprocessor_strips_mr_surname():
+    out = text_clean.vectorizer_preprocessor("Mr. Frederick, it seems to me...")
+    assert "frederick" not in out
+    assert "mr" not in out.split()
+
+
+def test_vectorizer_preprocessor_strips_period_variant():
+    out = text_clean.vectorizer_preprocessor(
+        "Thank you, Mr. Dreeben. Mr. Fisher, you would..."
+    )
+    assert "dreeben" not in out
+    assert "fisher" not in out
+
+
+def test_vectorizer_preprocessor_strips_general_surname():
+    out = text_clean.vectorizer_preprocessor("General Verrilli argued that...")
+    assert "verrilli" not in out
+
+
+def test_vectorizer_preprocessor_preserves_justice_surname():
+    """Justices addressing each other ('Justice Roberts') is a different
+    signal — must NOT be stripped."""
+    out = text_clean.vectorizer_preprocessor("I asked Justice Roberts about that.")
+    assert "justice" in out
+    assert "roberts" in out
+
+
+def test_vectorizer_preprocessor_lowercases():
+    out = text_clean.vectorizer_preprocessor("This Is Mixed CASE")
+    assert out == "this is mixed case"
+
+
+def test_vectorizer_preprocessor_handles_empty():
+    assert text_clean.vectorizer_preprocessor("") == ""
+    assert text_clean.vectorizer_preprocessor(None) == ""
+
+
+def test_vectorizer_preprocessor_is_idempotent():
+    text = "Mr. Frederick spoke. General Verrilli responded."
+    once = text_clean.vectorizer_preprocessor(text)
+    twice = text_clean.vectorizer_preprocessor(once)
+    assert once == twice

@@ -53,6 +53,40 @@ def preprocess_text(text: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Advocate-name pattern stripping (Phase 3.5)
+# ---------------------------------------------------------------------------
+
+# Phase 3 surfaced advocate-name leakage in top features ('mr frederick',
+# 'mr fisher'). Strip these patterns vectorizer-side via `preprocessor=` so
+# we don't have to enumerate surnames or rebuild the parquet.
+#
+# Conservative scope: only the title forms that name advocates. Do NOT touch
+# 'justice <surname>' (Justices addressing each other is a different signal).
+_ADVOCATE_TITLE_RE = re.compile(
+    # Title (with optional trailing period) + whitespace + capitalized surname.
+    # Oyez transcripts use "Mr. Frederick" with period; the optional `\.?`
+    # also catches "Mr Frederick" and "Mister Frederick".
+    r"\b(?:mr|mrs|ms|mister|madam|madame|general)\.?\s+[a-z][a-z\-']+\b",
+    flags=re.IGNORECASE,
+)
+
+
+def vectorizer_preprocessor(text: str) -> str:
+    """Lowercase + strip advocate-name patterns. Pass to `preprocessor=`.
+
+    sklearn's vectorizers call `preprocessor` on each document BEFORE
+    tokenization. Stripping `mr frederick`-style spans here removes both
+    the title and the surname token, which `stop_words=` alone (which acts
+    on single tokens after tokenization) cannot do.
+    """
+    if not text:
+        return ""
+    text = text.lower()
+    text = _ADVOCATE_TITLE_RE.sub(" ", text)
+    return _WS_RE.sub(" ", text).strip()
+
+
+# ---------------------------------------------------------------------------
 # Stopwords for Phase 3 vectorizer config
 # ---------------------------------------------------------------------------
 

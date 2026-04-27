@@ -40,7 +40,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
-from src.text_clean import STOPWORDS_FOR_VECTORIZER
+from src.text_clean import STOPWORDS_FOR_VECTORIZER, vectorizer_preprocessor
 
 MODELING_TABLE_PATH = Path("data/processed/modeling_table.parquet")
 BASELINE_RESULTS_PATH = Path("reports/results/baseline_results.csv")
@@ -57,24 +57,18 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def make_vectorizers() -> dict[str, object]:
-    """All three consume the same STOPWORDS_FOR_VECTORIZER (Non-Negotiable #3)."""
+    """All three consume the same STOPWORDS_FOR_VECTORIZER (Non-Negotiable #3)
+    AND the advocate-name `vectorizer_preprocessor` from text_clean (Phase 3.5
+    addition — strips `mr <surname>`-style spans before tokenization)."""
+    common = dict(
+        stop_words=STOPWORDS_FOR_VECTORIZER,
+        preprocessor=vectorizer_preprocessor,
+        lowercase=False,  # preprocessor handles lowercase
+    )
     return {
-        "bow_unigram": CountVectorizer(
-            ngram_range=(1, 1),
-            stop_words=STOPWORDS_FOR_VECTORIZER,
-            lowercase=True,
-        ),
-        "tfidf_unigram": TfidfVectorizer(
-            ngram_range=(1, 1),
-            stop_words=STOPWORDS_FOR_VECTORIZER,
-            lowercase=True,
-        ),
-        "tfidf_bigram": TfidfVectorizer(
-            ngram_range=(1, 2),
-            stop_words=STOPWORDS_FOR_VECTORIZER,
-            lowercase=True,
-            min_df=2,  # bigrams blow up vocab; min_df=2 drops singletons
-        ),
+        "bow_unigram": CountVectorizer(ngram_range=(1, 1), **common),
+        "tfidf_unigram": TfidfVectorizer(ngram_range=(1, 1), **common),
+        "tfidf_bigram": TfidfVectorizer(ngram_range=(1, 2), min_df=2, **common),
     }
 
 

@@ -1,5 +1,5 @@
 # Project State: JusticeCast
-Last updated: 2026-04-26 by CC at Phase 3 Checkpoint 3 (baseline sweep)
+Last updated: 2026-04-26 by CC at Phase 3.5 Checkpoint 3.5 (sanity pass)
 
 ## Project Context
 
@@ -360,16 +360,86 @@ Non-Negotiable #13 (per-Justice contested-cases ROC AUC) and the cai-plan
     27 RF configs × 5-fold CV = 135 fits × ~4-15s = ~10-30 min
   TOTAL realistic wall-clock:                       ~45-60 min
 
+## Phase 3.5 Sanity Pass — Confirmed: Phase 3 finding is real
+
+CAI reopened Phase 3 with three sanity tasks before launching Phase 4 +
+Phase 4.5 (the new comparative-methodology study). All three landed.
+
+### Task 1 — 10-row label correctness check
+
+Sampled 10 random rows from `modeling_table.parquet` (`random_state=42`).
+For each, verified that `voted_petitioner` matches the codebook formula
+`(partyWinning == 1) == (majority == 2)` AND that the case outcomes match
+historical record:
+
+| caseId | term | docket | caseName (truncated) | Justice | pet result | Justice in | label | hist? |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2019-042 | 2019 | 18-6662 | SHULAR v. UNITED STATES | EKagan | lost | majority | 0 | ✓ |
+| 2009-093 | 2009 | 08-1065 | POTTAWATTAMIE COUNTY ... v. CURTIS W. | AMKennedy | lost | majority | 0 | ✓ |
+| 2021-016 | 2021 | 20-303 | UNITED STATES v. VAELLO MADERO | SSotomayor | won | DISSENT | 0 | ✓ |
+| 2016-071 | 2016 | 16-6219 | DAVILA v. DAVIS | RBGinsburg | lost | DISSENT | 1 | ✓ |
+| 2023-026 | 2023 | 22-1238 | OFFICE OF THE U.S. TRUSTEE v. HAMMONS | BMKavanaugh | won | majority | 1 | ✓ |
+| 2022-043 | 2022 | 22-105 | COINBASE v. BIELSKI | KBJackson | won | DISSENT | 0 | ✓ |
+| 2020-056 | 2020 | 19-251 | AMERICANS FOR PROSPERITY ... v. BONTA | NMGorsuch | won | majority | 1 | ✓ |
+| 2006-013 | 2006 | 05-593 | OSBORN v. HALEY | SGBreyer | lost | majority | 0 | ✓ |
+| 2018-057 | 2018 | 18-281 | VIRGINIA HOUSE v. BETHUNE-HILL | BMKavanaugh | lost | DISSENT | 1 | ✓ |
+| 2020-015 | 2020 | 19-123 | FULTON v. CITY OF PHILADELPHIA | CThomas | won | majority | 1 | ✓ |
+
+**Result: 10/10 coherent + 10/10 match historical record.** The Phase 3
+chance-level AUC is NOT a labeling bug.
+
+### Task 2 — Advocate-name stopword expansion
+
+Implementation: added `vectorizer_preprocessor()` to `src/text_clean.py`
+that lowercases text and strips advocate-name patterns
+(`mr|mrs|ms|mister|madam|madame|general` + optional period + surname)
+before tokenization. Wired into `make_vectorizers()` in
+`src/phase3_baseline_sweep.py` via the vectorizer `preprocessor=` argument.
+No parquet rebuild — vectorizer-side filtering only, per cai-plan.
+
+Critical fix: initial regex didn't account for the period in "Mr. Frederick"
+(Oyez transcript style). Caught by the verification step below; fixed.
+The corrected regex catches `Mr. Frederick`, `Mister Frederick`, `Mr Frederick`,
+`General Verrilli`, etc., and explicitly preserves `Justice Roberts`-style
+patterns (Justices addressing each other is a different signal).
+
+### Task 3 — Re-run with expanded stopwords
+
+  Best linear AUC (was 0.528 → now 0.527)         within ±0.001
+  All combo AUCs in 0.520-0.527                   essentially unchanged
+  Vocab dropped:  29,594 → 28,987 unigrams        -607
+                  202,559 → 199,546 bigrams       -3,013
+  Advocate-title features in top 60:              0 (was 4)
+
+**Top 15 features post-stripping** are now exclusively thematic legal
+vocabulary:
+- Petitioner-side: officer, misleading, arrest, profits, attorney, circuit,
+  standing, religious, hypothetical, plan, church, factor, taking, need, standard
+- Respondent-side: delegation, evidence, petition, hours, insurance, fraud,
+  jury, discovery, records, sentence, grand jury, trial, indian, actual
+  knowledge, discharge
+
+Confirms the Phase 3 narrative: **the model is learning thematic legal
+vocabulary as a topic proxy**, not stance markers, and this picture
+persists when the obvious advocate-name leakage is removed.
+
+### Phase 3.5 implications
+
+The Phase 3 chance-level finding is the real picture. Project pivots from
+single-track null result to comparative methodology study (BoW vs sentence-
+transformer embeddings). Phase 4 (BoW tuning) and Phase 4.5 (embeddings)
+proceed with checkpoints between, sharing identical splits via
+`src/modeling/splits.py` (Phase 4.5 setup task).
+
 ## Current Status
 
 - **Completed phases**: Phase 0; Phase 1 (Stop A + Stop B + Stop C rescue);
-  Phase 2 (cleanup + B1–B6 EDA expansion); Phase 3 (9-combo baseline sweep).
-- **Current phase**: Awaiting Checkpoint 3 approval before Phase 4
-  (sequential GridSearchCV — Stage 4A linear + vectorizer joint, then
-  Stage 4B RF with fixed vectorizer).
-- **Blockers**: None mechanical. The headline empirical finding (chance-level
-  AUC across all 9 baselines) reshapes Phase 5 framing but does not block
-  Phase 4 — tuning is still appropriate to confirm the ceiling.
+  Phase 2 (cleanup + B1–B6 EDA expansion); Phase 3 (9-combo baseline sweep);
+  Phase 3.5 (label re-verification + advocate-name preprocessor).
+- **Current phase**: Awaiting Checkpoint 3.5 confirmation, then proceeding
+  through Phase 4 (BoW GridSearchCV) and Phase 4.5 (sentence-embeddings
+  peer track) with checkpoints between.
+- **Blockers**: None.
 
 ## What's Left
 
