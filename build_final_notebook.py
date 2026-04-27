@@ -45,6 +45,8 @@ This notebook is organized around CRISP-DM's six phases as primary top-level sec
 | 6. Model Deployment | Deployment plan, monitoring, next CRISP-DM iteration | §6 |
 """))
 
+cells.append(new_markdown_cell("""*We built two parallel models predicting SCOTUS Justice votes from oral-argument questions, structured around CRISP-DM. The standard bag-of-words approach (TF-IDF + LinearSVC, tuned via GridSearchCV) hit a ceiling at ROC AUC 0.532. A pre-trained sentence-embeddings approach (MiniLM-L6-v2 + LogisticRegression) reached 0.569, a 3.7 percentage-point lift. The gap survived the strict contested-cases test (+4 pp on cases where the bench was genuinely split, where author-identity-plus-priors recovery cannot account for the lift). The result quantifies how much bench-reading signal lives in semantics versus lexical features, and recommends pre-trained embeddings as the necessary baseline for legal-tech products in this space.*"""))
+
 cells.append(new_code_cell("""# Imports + load all pre-computed artifacts. This notebook reads from
 # reports/results/ — it does NOT re-run modeling. Restart & Run All
 # completes in seconds.
@@ -178,18 +180,21 @@ cells.append(new_markdown_cell("""### 1.6 Rubric mapping
 
 | Rubric requirement | Where it lives in this notebook |
 | --- | --- |
-| Bag-of-Words vectorization | §3.6, §4.1 |
-| TF-IDF vectorization | §3.6, §4.1 |
-| n-grams | §4.2 (best vectorizer config tuned over `(1,1) / (1,2) / (1,3)`) |
-| 3 classifiers | §4.1 (LogReg, LinearSVC, RF) |
-| GridSearchCV | §4.2 (BoW), §4.4 (Embeddings) |
-| Sentiment/stance label semantics | §3.1 (codebook-verified label derivation) |
-| Train/test discipline | §3.5 (StratifiedGroupKFold by case_id, no leakage) |
-| Confusion matrix, precision/recall/F1, ROC AUC, ROC/PR/calibration curves | §5.2 |
-| Per-Justice analysis | §5.3, §5.4 |
-| Top features per class + business interpretation | §5.5, §5.7 |
-| ML Canvas (separate PDF) | `reports/ml_canvas.pdf` (Phase 6 deliverable) |
-| Pitch deck (separate PDF) | `reports/JusticeCast_Pitch.pdf` (Phase 7 deliverable) |
+| Bag of Words (BoW) vectorization | §3.6, §4.1 (`CountVectorizer`) |
+| TF-IDF vectorization | §3.6, §4.1 (`TfidfVectorizer`) |
+| n-grams | §4.2 (best vectorizer config tuned over `ngram_range ∈ {(1,1), (1,2), (1,3)}`) |
+| Logistic Regression classifier | §4.1, §4.2 (`LogisticRegression(class_weight='balanced')`) |
+| Support Vector Machine classifier (LinearSVC for BoW, SVC-RBF for embeddings) | §4.1, §4.2 (`LinearSVC`); §4.3, §4.4 (`SVC(kernel='rbf')`) |
+| Random Forest classifier | §4.1, §4.2 (`RandomForestClassifier(n_estimators=…, class_weight='balanced')`) |
+| GridSearchCV hyperparameter tuning | §4.2 (BoW, sequential strategy), §4.4 (Embeddings) |
+| Sentiment / stance label semantics | §3.1 (codebook-verified `voted_petitioner` label derivation) |
+| Train/test split discipline | §3.5 (`StratifiedGroupKFold` by `case_id`, no case leakage) |
+| Confusion matrix, precision, recall, F1, ROC AUC, ROC curve, PR curve, calibration curve | §5.2 (rendered side by side both tracks) |
+| Per-Justice analysis | §5.3 (per-Justice lift over individual baseline), §5.4 (per-Justice contested-cases AUC + bootstrap CIs) |
+| Top features per class | §5.5.1 (BoW coefficients), §5.5.2 (embeddings via extreme-score utterances) |
+| Business interpretation including false positive vs false negative cost (FN/FP) | §1.3, §5.6, §5.7 (FN-tilt for litigators; FP-tilt for amicus authors) |
+| Machine Learning Canvas | `reports/ml_canvas.pdf` (separate Phase 6 deliverable; each box CRISP-DM-tagged) |
+| Pitch deck | `reports/JusticeCast_Pitch.pdf` (separate Phase 7 deliverable) |
 """))
 
 
@@ -259,6 +264,42 @@ print(f'Unanimous-case rows: {(modeling_table["unanimous"] == 1).sum():,} ({(mod
 print('\\nPipeline stages (rows in → out):')
 for _, row in audit.iterrows():
     print(f'  {row["stage"]:<55s}  {row["rows_in"]:>6,} → {row["rows_out"]:>6,}  (Δ {-row["rows_dropped"]:+d})')"""))
+
+cells.append(new_code_cell("""# Pipeline funnel — case-level (Phase 1 fetch) and row-level (Phase 2 cleanup)
+# stages combined into one horizontal bar chart so the data-loss profile
+# is visible in one glance.
+funnel_stages = [
+    ('Cases attempted (2005-2024 SCDB window)',     1470,  'case'),
+    ('Step 1 fetch succeeded',                      1420,  'case'),
+    ('Cases with >=1 oral_argument_audio',          1322,  'case'),
+    ('Cases parsed into joined parquet',            1307,  'case'),
+    ('SCDB-Oyez joined rows',                      10308,  'row'),
+    ('After drop NaN-label rows',                  10137,  'row'),
+    ('After drop original-jurisdiction cases',     10120,  'row'),
+    ('Final modeling table (word_count >= 30)',    10039,  'row'),
+]
+labels = [s[0] for s in funnel_stages]
+counts = [s[1] for s in funnel_stages]
+colors = ['#9ecae1' if s[2] == 'case' else '#fdae6b' for s in funnel_stages]
+
+fig, ax = plt.subplots(figsize=(9.5, 4.5))
+bars = ax.barh(range(len(funnel_stages)), counts, color=colors, edgecolor='#1f2a44', linewidth=0.6)
+for i, (bar, count) in enumerate(zip(bars, counts)):
+    ax.text(count + max(counts) * 0.01, bar.get_y() + bar.get_height() / 2,
+            f'{count:,}', va='center', fontsize=9)
+ax.set_yticks(range(len(funnel_stages)))
+ax.set_yticklabels(labels)
+ax.invert_yaxis()
+ax.set_xscale('log')
+ax.set_xlim(1000, max(counts) * 1.4)
+ax.set_xlabel('Count (log scale; case-level rows on top, justice-level rows below)')
+ax.set_title('Data pipeline funnel — case fetch → row cleanup')
+
+from matplotlib.patches import Patch
+ax.legend(handles=[Patch(facecolor='#9ecae1', edgecolor='#1f2a44', label='case-level (Phase 1 fetch)'),
+                   Patch(facecolor='#fdae6b', edgecolor='#1f2a44', label='row-level (Phase 2 cleanup)')],
+          loc='lower right')
+plt.show()"""))
 
 cells.append(new_markdown_cell("""### 2.4 Data quality findings
 
@@ -542,6 +583,35 @@ print()
 cols = ['combo_id', 'accuracy', 'balanced_accuracy', 'roc_auc', 'f1', 'n_features', 'fit_time_sec']
 print(display[cols].to_string(index=False, float_format='%.3f'))"""))
 
+cells.append(new_code_cell("""# 9-combo BoW baseline sweep, sorted by ROC AUC, color-coded by classifier family.
+# The 'all 9 cluster around 0.51-0.53' finding is visceral as a chart, abstract
+# as a printed DataFrame.
+bow_chart = bow_baseline.sort_values('roc_auc').copy()
+clf_to_color = {'logreg': '#3a6ea5', 'linear_svc': '#2ca02c', 'random_forest': '#c44'}
+clf_to_label = {'logreg': 'LogReg', 'linear_svc': 'LinearSVC', 'random_forest': 'RandomForest'}
+bow_chart['color'] = bow_chart['classifier'].map(clf_to_color)
+
+fig, ax = plt.subplots(figsize=(8.5, 4.5))
+y = np.arange(len(bow_chart))
+bars = ax.barh(y, bow_chart['roc_auc'].values, color=bow_chart['color'].values,
+               edgecolor='#1f2a44', linewidth=0.6)
+ax.axvline(0.5, color='black', linestyle='--', linewidth=0.8, alpha=0.6, label='chance (AUC=0.5)')
+for bar, auc in zip(bars, bow_chart['roc_auc']):
+    ax.text(auc + 0.002, bar.get_y() + bar.get_height() / 2,
+            f'{auc:.3f}', va='center', fontsize=8)
+ax.set_yticks(y)
+ax.set_yticklabels(bow_chart['combo_id'].values)
+ax.set_xlim(0.49, 0.55)
+ax.set_xlabel('Test ROC AUC')
+ax.set_title('BoW baseline sweep — all 9 combinations cluster at 0.51-0.53')
+
+from matplotlib.patches import Patch
+handles = [Patch(facecolor=c, edgecolor='#1f2a44', label=clf_to_label[k])
+           for k, c in clf_to_color.items()]
+handles.append(plt.Line2D([0], [0], color='black', linestyle='--', label='chance (AUC=0.5)'))
+ax.legend(handles=handles, loc='lower right', fontsize=8)
+plt.show()"""))
+
 cells.append(new_markdown_cell("""**Phase 3 finding:** all 9 combinations land ROC AUC in `0.507–0.528` — barely above chance. The RandomForest rows show the class-prior trap: 62% accuracy by predicting near-majority almost always (balanced_accuracy ~0.50). Linear models with `class_weight='balanced'` have lower accuracy but more informative AUC."""))
 
 cells.append(new_markdown_cell("""### 4.2 BoW hyperparameter tuning — sequential strategy
@@ -582,6 +652,41 @@ print()
 disp = emb_baseline.sort_values('roc_auc', ascending=False)
 print(disp[['combo_id', 'embedding_dim', 'accuracy', 'balanced_accuracy', 'roc_auc', 'f1', 'fit_time_sec']]
       .to_string(index=False, float_format='%.3f'))"""))
+
+cells.append(new_code_cell("""# 6-combo embeddings baseline sweep, sorted by ROC AUC, color-coded by
+# embedding model. Note the y-axis range starts higher than the BoW chart —
+# even the worst embedding combo beats the BoW best.
+emb_chart = emb_baseline.sort_values('roc_auc').copy()
+def _emb_key(model_name: str) -> str:
+    return 'minilm' if 'MiniLM' in model_name else 'mpnet'
+emb_chart['emb_key'] = emb_chart['embedding_model'].map(_emb_key)
+emb_to_color = {'minilm': '#3a6ea5', 'mpnet': '#fdae6b'}
+emb_to_label = {'minilm': 'all-MiniLM-L6-v2 (384-dim)', 'mpnet': 'all-mpnet-base-v2 (768-dim)'}
+emb_chart['color'] = emb_chart['emb_key'].map(emb_to_color)
+
+fig, ax = plt.subplots(figsize=(8.5, 3.6))
+y = np.arange(len(emb_chart))
+bars = ax.barh(y, emb_chart['roc_auc'].values, color=emb_chart['color'].values,
+               edgecolor='#1f2a44', linewidth=0.6)
+bow_best = bow_baseline['roc_auc'].max()
+ax.axvline(bow_best, color='#c44', linestyle=':', linewidth=1.4,
+           label=f'BoW baseline best ({bow_best:.3f})')
+for bar, auc in zip(bars, emb_chart['roc_auc']):
+    ax.text(auc + 0.002, bar.get_y() + bar.get_height() / 2,
+            f'{auc:.3f}', va='center', fontsize=8)
+ax.set_yticks(y)
+ax.set_yticklabels(emb_chart['combo_id'].values)
+ax.set_xlim(0.49, 0.59)
+ax.set_xlabel('Test ROC AUC')
+ax.set_title('Embeddings baseline sweep — every embedding combo beats the BoW best')
+
+from matplotlib.patches import Patch
+handles = [Patch(facecolor=c, edgecolor='#1f2a44', label=emb_to_label[k])
+           for k, c in emb_to_color.items()]
+handles.append(plt.Line2D([0], [0], color='#c44', linestyle=':', linewidth=1.4,
+                          label=f'BoW baseline best ({bow_best:.3f})'))
+ax.legend(handles=handles, loc='lower right', fontsize=8)
+plt.show()"""))
 
 cells.append(new_markdown_cell("""**Best baseline embedding combination is `MiniLM + SVM-RBF` at AUC 0.569** — already higher than the BoW *tuned* winner. Lightweight MiniLM (384-dim) edged MPNet (768-dim) by 0.003 — within noise but selected for the 10× encode-speed advantage."""))
 
@@ -656,6 +761,46 @@ print(topline.to_string(index=False, float_format='%.4f'))
 print()
 gap = topline.iloc[1]['Test ROC AUC (fold 0)'] - topline.iloc[0]['Test ROC AUC (fold 0)']
 print(f'Test AUC lift (embeddings - BoW): +{gap:.4f}  ({gap * 100:+.1f} pp)')"""))
+
+cells.append(new_code_cell("""# Headline-metrics grouped bar chart: BoW vs Embeddings on the three
+# metrics that matter most for the comparative claim.
+bow_summary = phase5_summary[phase5_summary.track == 'bow'].iloc[0]
+emb_summary = phase5_summary[phase5_summary.track == 'embeddings'].iloc[0]
+
+# Mean per-Justice contested AUC from the honesty triad
+contested_means = (phase5_triad[(phase5_triad.slice == 'contested') & phase5_triad.point_auc.notna()]
+                   .groupby('track')['point_auc'].mean())
+
+metrics = ['Test ROC AUC', 'Contested-cases\\nper-Justice AUC (mean)', 'Test balanced accuracy']
+bow_vals = [bow_summary['test_roc_auc'], contested_means['bow'], bow_summary['test_balanced_accuracy']]
+emb_vals = [emb_summary['test_roc_auc'], contested_means['embeddings'], emb_summary['test_balanced_accuracy']]
+
+x = np.arange(len(metrics))
+width = 0.36
+fig, ax = plt.subplots(figsize=(8, 4.5))
+b1 = ax.bar(x - width / 2, bow_vals, width, color='#3a6ea5', edgecolor='#1f2a44', label='BoW (LinearSVC)')
+b2 = ax.bar(x + width / 2, emb_vals, width, color='#c44', edgecolor='#1f2a44', label='Embeddings (LogReg on MiniLM)')
+ax.axhline(0.5, color='black', linestyle='--', linewidth=0.8, alpha=0.6, label='chance (0.5)')
+
+for bars in (b1, b2):
+    for bar in bars:
+        h = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width() / 2, h + 0.005,
+                f'{h:.3f}', ha='center', va='bottom', fontsize=9)
+
+# Annotate the lifts
+for xi, b, e in zip(x, bow_vals, emb_vals):
+    lift_pp = (e - b) * 100
+    ax.annotate(f'+{lift_pp:.1f} pp', xy=(xi, max(b, e) + 0.03),
+                ha='center', fontsize=9, fontweight='bold', color='#1f2a44')
+
+ax.set_xticks(x)
+ax.set_xticklabels(metrics, fontsize=9.5)
+ax.set_ylim(0.48, 0.65)
+ax.set_ylabel('Score')
+ax.set_title('Headline metrics — BoW vs Embeddings on identical fold-0 test set')
+ax.legend(loc='upper left', fontsize=8.5)
+plt.show()"""))
 
 cells.append(new_markdown_cell("""### 5.2 Standard metrics suite — both tracks side by side
 
@@ -831,14 +976,18 @@ In the respondent-confident extremes, several utterances ask probing questions a
 
 cells.append(new_markdown_cell("""### 5.6 Evaluation against business criteria (loop back to §1)
 
-Section 1.2 set the success criterion as **"ROC AUC meaningfully above the per-Justice majority-class baseline on contested cases."** Result on contested cases:
+Section 1.2 set the empirical success criterion verbatim as: *"ROC AUC meaningfully above the per-Justice majority-class baseline on contested cases."*
 
-| Track | n_above_chance / n_with_AUC | Mean per-Justice contested AUC |
+**Result on contested cases:**
+
+| Track | Justices above per-Justice baseline | Mean per-Justice contested AUC |
 | --- | --- | --- |
-| BoW | 9 / 15 | 0.532 |
-| Embeddings | 13 / 15 | 0.576 |
+| BoW model | **9 of 15 (60%)** | 0.532 |
+| Embeddings model | **13 of 15 (87%)** | 0.576 |
 
-**The success criterion is partially met — broadly with embeddings, narrowly with BoW.** For deployment, the FN-vs-FP cost asymmetry depends on the consumer:
+**The success criterion is partially met — broadly with embeddings (13/15 = 87%), narrowly with BoW (9/15 = 60%).** The +4.4 percentage-point gap on the strict contested-cases test (where the case-prior does not pre-determine the vote) indicates the embedding lift is real bench-questioning signal, not author-identity-plus-priors recovery. In the global slice, BoW lands test ROC AUC 0.532 and embeddings 0.569 — a +3.7 pp lift; both beat the global majority baseline (0.624 accuracy by always predicting petitioner) on balanced metrics, but only embeddings clear the contested-cases bar at the per-Justice level for a majority of Justices.
+
+For deployment, the FN-vs-FP cost asymmetry depends on the consumer:
 - Pre-argument prep (litigators) → FN costlier (missing a sympathetic Justice loses the case)
 - Post-argument amicus targeting → FP costlier (over-prepared briefs are wasted)
 
@@ -941,48 +1090,19 @@ The empirical AUC baseline this study establishes (BoW ~0.53, MiniLM ~0.57) is t
 
 cells.append(new_markdown_cell("""### 6.6 Final reports & reproducibility
 
+Reproducibility is the integrity signal for an empirical study: another researcher should be able to clone this repo and arrive at the same numbers in this notebook. The deliverables below are the artifacts that close that loop.
+
 | Deliverable | Path |
 | --- | --- |
 | Final notebook (this document) | `notebooks/JusticeCast_Final.ipynb` |
 | Working notebooks | `notebooks/01_eda.ipynb`, `notebooks/02_phase5_comparative.ipynb` |
 | ML Canvas v0.4 | `reports/ml_canvas.pdf` |
 | Pitch deck | `reports/JusticeCast_Pitch.pdf` (Phase 7 deliverable) |
-| Source modules | `src/` (15 files) |
-| Tests | `tests/` (8 files, 90 passing) |
-| Result CSVs | `reports/results/` (24 files spanning Phases 1-5) |
+| Source modules | `src/` (Python modules for fetchers, builders, sweeps, evaluation) |
+| Tests | `tests/` (90 pytest tests passing) |
+| Result CSVs | `reports/results/` (per-phase artifacts spanning Phases 1-5) |
 
-#### Reproducibility from a fresh clone
-
-```sh
-# 1. Clone, setup venv
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-# 2. Fetch SCDB + Oyez transcripts (54 min for full bulk fetch)
-python -m src.run_bulk_fetch
-python -m src.rescue_failed_dockets   # +2 cases including Citizens United
-python -m src.build_dataset           # join SCDB ↔ Oyez
-
-# 3. Build modeling table + EDA (instant)
-python -m src.build_modeling_table
-
-# 4. Encode embeddings (~12 min CPU)
-python -m src.compute_embeddings
-
-# 5. Run all modeling phases
-python -m src.phase3_baseline_sweep   # ~30 sec
-python -m src.phase4_gridsearch       # ~7 min (n_jobs=4)
-python -m src.phase45_baseline_sweep  # ~2 min
-python -m src.phase45_gridsearch      # ~17 min
-python -m src.phase5_evaluation       # ~30 sec
-python -m src.build_comparative_summary
-
-# 6. Run tests
-pytest                                 # 90 tests, ~15 sec
-```
-
-Pre-computed result CSVs and cached embeddings let this notebook `Restart & Run All` cleanly in seconds without re-running modeling."""))
+The full pipeline reproduces from a fresh clone in roughly 95 minutes — 54 minutes for the bulk Oyez fetch, 12 minutes for embedding encoding, and approximately 25 minutes for the modeling sweeps and hyperparameter tuning. Cached embeddings and pre-computed result CSVs let this notebook itself execute `Restart & Run All` in seconds without re-running modeling. Full reproduction commands are documented in `README.md`."""))
 
 
 # ===========================================================================
