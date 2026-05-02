@@ -506,19 +506,32 @@ def render_ml_canvas_summary():
     # body area is ~2.45 in wide. At fontsize=6.0 (~0.04 in/char) that's
     # comfortably ~60 chars; we wrap at 55 to leave a small right-margin.
     # Bullet lines get subsequent_indent="  " so wrapped continuations stay
-    # aligned under the bullet text (not under the bullet glyph).
+    # aligned under the bullet text (not under the bullet glyph). A blank
+    # line is inserted BETWEEN bullet items (not after the last) so each
+    # item reads as its own visual block.
     def _wrap_body(text: str, width: int = 55) -> str:
-        out = []
+        wrapped = []
         for line in text.split("\n"):
             if not line.strip():
-                out.append("")
+                wrapped.append(("blank", ""))
                 continue
             is_bullet = line.lstrip().startswith("•")
-            out.append(textwrap.fill(
+            text_out = textwrap.fill(
                 line, width=width,
                 break_long_words=False, replace_whitespace=False,
                 subsequent_indent="  " if is_bullet else "",
-            ))
+            )
+            wrapped.append(("bullet" if is_bullet else "text", text_out))
+        out = []
+        for i, (kind, content) in enumerate(wrapped):
+            out.append(content)
+            if kind == "bullet" and i < len(wrapped) - 1:
+                next_nonblank = next(
+                    ((k, c) for (k, c) in wrapped[i + 1:] if k != "blank"),
+                    None,
+                )
+                if next_nonblank is not None:
+                    out.append("")
         return "\n".join(out)
 
     for col, row, title, phase, body in BOXES:

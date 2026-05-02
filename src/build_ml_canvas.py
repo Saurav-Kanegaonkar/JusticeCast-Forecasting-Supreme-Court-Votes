@@ -107,18 +107,36 @@ def _wrap_body(text: str, width: int = 60) -> str:
     Bullet lines (start with `•`) get `subsequent_indent="  "` so wrapped
     continuation lines align under the bullet text, not under the bullet
     glyph itself.
+
+    Inserts a blank line BETWEEN bullet items (not after the last) so
+    bullets read as separate visual blocks rather than a tight wall of text.
     """
-    out = []
-    for line in text.split("\n"):
+    raw_lines = text.split("\n")
+    wrapped = []
+    for line in raw_lines:
         if not line.strip():
-            out.append("")
+            wrapped.append(("blank", ""))
             continue
         is_bullet = line.lstrip().startswith("•")
-        out.append(textwrap.fill(
+        text_out = textwrap.fill(
             line, width=width,
             break_long_words=False, replace_whitespace=False,
             subsequent_indent="  " if is_bullet else "",
-        ))
+        )
+        wrapped.append(("bullet" if is_bullet else "text", text_out))
+
+    out = []
+    for i, (kind, content) in enumerate(wrapped):
+        out.append(content)
+        # Spacing rule: after a bullet, insert a blank line UNLESS the next
+        # non-blank entry is the end of the body. Don't double-pad if the
+        # source already had an explicit blank.
+        if kind == "bullet" and i < len(wrapped) - 1:
+            next_nonblank = next(
+                ((k, c) for (k, c) in wrapped[i + 1:] if k != "blank"), None
+            )
+            if next_nonblank is not None:
+                out.append("")
     return "\n".join(out)
 
 
