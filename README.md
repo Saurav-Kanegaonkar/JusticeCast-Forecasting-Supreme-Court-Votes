@@ -62,7 +62,7 @@ JusticeCast/
 ├── reports/
 │   ├── proposal.md                      # 1-page proposal sent to professor (4/26)
 │   ├── ml_canvas.pdf                    # ML Canvas v0.4 with CRISP-DM phase tags
-│   ├── JusticeCast_Pitch.pdf            # Phase 7 pitch deck (PDF; 11 slides)
+│   ├── JusticeCast_Pitch.ppt            # Phase 7 pitch deck (PowerPoint, 11 slides; team-editable)
 │   ├── checkpoint1_summary.md           # auto-generated Phase 1 report
 │   ├── deck_assets/                     # 8 chart PNGs + 4 markdown specs (Phase 7)
 │   └── results/                         # 25+ result CSVs across Phases 1–5
@@ -88,7 +88,7 @@ The submission notebook (`notebooks/JusticeCast_Final.ipynb`) is organized aroun
 | **5. Model Evaluation** | Standard metrics + the honesty triad (per-Justice contested-cases AUC) | Notebook §5; `src/phase5_evaluation.py`; `notebooks/02_phase5_comparative.ipynb` |
 | **6. Model Deployment** | Deployment plan, monitoring cadence, methodological frontier | Notebook §6 |
 
-The Machine Learning Canvas (`reports/ml_canvas.pdf`) tags each box with its corresponding CRISP-DM phase. The pitch deck (`reports/JusticeCast_Pitch.pdf`) flows loosely along the same six phases without naming them in headers.
+The Machine Learning Canvas (`reports/ml_canvas.pdf`) tags each box with its corresponding CRISP-DM phase. The pitch deck (`reports/JusticeCast_Pitch.ppt`) flows loosely along the same six phases without naming them in headers.
 
 ---
 
@@ -186,8 +186,8 @@ The bulk fetch is the only real-time bottleneck (Oyez API ≤ 1 req/sec across b
 BAX 453, Spring 2026 — six-person team:
 
 - Saurav Kanegaonkar
-- [Team member 2]
-- [Team member 3]
-- [Team member 4]
-- [Team member 5]
-- [Team member 6]
+- Amal Farhad Shaji
+- Tanmay Kallakuri
+- Vedant Tiwari
+- Vedika Shetty
+- Akansha Totre
