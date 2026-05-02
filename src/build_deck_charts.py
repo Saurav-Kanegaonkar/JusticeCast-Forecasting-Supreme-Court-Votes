@@ -273,7 +273,8 @@ def chart_kbjackson_flip():
 
     ax.set_ylim(0.0, 0.85)
     ax.set_ylabel("Per-Justice ROC AUC (contested cases)")
-    ax.legend(loc="lower right", framealpha=0.9)
+    # Legend in upper-left — clear of both bars and the centered "+0.238" callout
+    ax.legend(loc="upper left", framealpha=0.95)
     _title_and_subtitle(
         fig, ax,
         "KBJackson — same Justice, opposite verdicts",
@@ -400,7 +401,9 @@ def chart_data_pipeline_funnel():
                               label="case-level (Phase 1 fetch)"),
                mpatches.Patch(facecolor=C_EMB, edgecolor=C_NAVY,
                               label="row-level (Phase 2 cleanup)")]
-    ax.legend(handles=handles, loc="lower right", framealpha=0.9)
+    # Legend in upper-right — short bars at the top leave that corner empty;
+    # the long bars at the bottom (10K range) would collide with lower-right
+    ax.legend(handles=handles, loc="upper right", framealpha=0.95)
     _title_and_subtitle(
         fig, ax,
         "Data pipeline funnel — fetch then cleanup",
@@ -498,11 +501,13 @@ def render_ml_canvas_summary():
                                    facecolor=color, edgecolor="none",
                                    alpha=0.45))
 
-    # Wrap body text to fit the box width (~38 chars at fontsize=6.0 in
-    # the 0.85-axes-unit-wide box at FIGSIZE_FULL). Preserve explicit \n.
+    # Wrap body text to fit the box width. At FIGSIZE_FULL (12 × 6.75 in)
+    # with axes width ~96% / 4 columns / 0.85 box-of-column, each box's
+    # body area is ~2.45 in wide. At fontsize=6.0 (~0.04 in/char) that's
+    # comfortably ~60 chars; we wrap at 55 to leave a small right-margin.
     # Bullet lines get subsequent_indent="  " so wrapped continuations stay
     # aligned under the bullet text (not under the bullet glyph).
-    def _wrap_body(text: str, width: int = 38) -> str:
+    def _wrap_body(text: str, width: int = 55) -> str:
         out = []
         for line in text.split("\n"):
             if not line.strip():

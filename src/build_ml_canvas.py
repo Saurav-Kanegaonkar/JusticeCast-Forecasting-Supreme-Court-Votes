@@ -97,8 +97,12 @@ BOXES = [
 ]
 
 
-def _wrap_body(text: str, width: int = 42) -> str:
+def _wrap_body(text: str, width: int = 60) -> str:
     """Wrap each line to ~`width` chars, preserving explicit \\n breaks.
+
+    The Canvas PDF uses figsize=(15, 9) — boxes are ~3.2 in wide for body
+    text, comfortably fitting ~70 chars at fontsize=6.0; we wrap at 60 to
+    leave safety margin and keep readability.
 
     Bullet lines (start with `•`) get `subsequent_indent="  "` so wrapped
     continuation lines align under the bullet text, not under the bullet
