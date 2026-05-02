@@ -9,6 +9,8 @@ all justice-rows from a given case stay in the same fold (no leakage).
 
 Non-Negotiables #2 / #5: stratified on the binary label, fixed
 random_state=42, n_splits=5, shuffle=True.
+CRISP-DM phase: Data Preparation.
+Canonical fold-0 train/test split shared across both modeling tracks.
 """
 from __future__ import annotations
 

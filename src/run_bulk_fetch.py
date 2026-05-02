@@ -13,6 +13,8 @@ Outputs:
 Usage:
     python -m src.run_bulk_fetch                  # 2005–2024 window
     python -m src.run_bulk_fetch --start-term 2018 --end-term 2024
+CRISP-DM phase: Data Understanding.
+Phase 1 Stop B — sequential bulk-fetch driver for the 2005-2024 window.
 """
 from __future__ import annotations
 

@@ -19,6 +19,8 @@ Outputs:
 
 Usage:
     python -m src.phase4_gridsearch
+CRISP-DM phase: Modeling.
+Phase 4 — BoW GridSearchCV (sequential strategy).
 """
 from __future__ import annotations
 

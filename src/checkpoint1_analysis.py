@@ -2,6 +2,8 @@
 
 Reads from the cached SCDB, the bulk-fetch log, and the joined parquet.
 Writes reports/checkpoint1_summary.md (committed) for paste-ready handoff.
+CRISP-DM phase: Data Understanding.
+Phase 1 detailed report on coverage, Justice mapping, and joined-table shape.
 """
 from __future__ import annotations
 

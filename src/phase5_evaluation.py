@@ -29,6 +29,8 @@ Outputs:
 
 Usage:
     python -m src.phase5_evaluation
+CRISP-DM phase: Model Evaluation.
+Phase 5 — refit winners + honesty triad (per-Justice contested-cases AUC).
 """
 from __future__ import annotations
 

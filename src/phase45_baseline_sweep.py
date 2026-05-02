@@ -7,6 +7,8 @@ the canonical fold-0 test set from src/modeling/splits.py.
 Outputs:
     reports/results/embedding_baseline_results.csv
     reports/results/embedding_baseline_per_justice.csv
+CRISP-DM phase: Modeling.
+Phase 4.5 — embeddings 6-combo untuned baseline sweep.
 """
 from __future__ import annotations
 

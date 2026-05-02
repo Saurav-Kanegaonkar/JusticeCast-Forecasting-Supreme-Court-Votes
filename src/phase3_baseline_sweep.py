@@ -13,6 +13,8 @@ Outputs:
 
 Usage:
     python -m src.phase3_baseline_sweep
+CRISP-DM phase: Modeling.
+Phase 3 — BoW 9-combo untuned baseline sweep.
 """
 from __future__ import annotations
 

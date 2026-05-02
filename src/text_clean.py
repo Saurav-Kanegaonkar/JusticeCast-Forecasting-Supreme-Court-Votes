@@ -18,6 +18,8 @@ proper nouns and abbreviations, the model would partly memorize
 topic-vs-outcome rather than learn stance-from-questioning. Stopwording
 JUST these identifying terms (not thematic legal vocabulary) is the
 narrow intervention.
+CRISP-DM phase: Data Preparation.
+Preprocessing + custom stopword list for the BoW track.
 """
 from __future__ import annotations
 

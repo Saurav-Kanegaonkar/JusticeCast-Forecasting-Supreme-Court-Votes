@@ -15,6 +15,8 @@ SCDB (term, docket) key so `build_dataset.py` picks it up unchanged.
 
 Outputs:
   reports/results/rescue_log.csv — one row per attempted rescue
+CRISP-DM phase: Data Understanding.
+Stop C rescue pass — recovers re-argued cases filed under term ± 1 on Oyez.
 """
 from __future__ import annotations
 

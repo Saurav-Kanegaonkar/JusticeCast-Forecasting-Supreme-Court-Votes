@@ -5,6 +5,8 @@ narrative work:
 
     reports/results/comparative_summary.csv         — top-line: one row per track winner
     reports/results/comparative_per_justice.csv     — long form: Justice × track
+CRISP-DM phase: Model Evaluation.
+Builds the side-by-side BoW vs Embeddings comparison artifacts.
 """
 from __future__ import annotations
 

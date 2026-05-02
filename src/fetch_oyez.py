@@ -9,6 +9,8 @@ layers (≤ 1 req/sec end-to-end), per Oyez politeness norms.
 
 Usage:
     python -m src.fetch_oyez --term 2014 --docket 13-604
+CRISP-DM phase: Data Understanding.
+Data acquisition — 2-step Oyez transcript fetch.
 """
 from __future__ import annotations
 

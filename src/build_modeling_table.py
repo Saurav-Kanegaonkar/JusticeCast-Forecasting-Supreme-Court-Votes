@@ -18,6 +18,8 @@ Outputs: data/processed/modeling_table.parquet
 Usage:
     python -m src.build_modeling_table
     python -m src.build_modeling_table --word-count-floor 50
+CRISP-DM phase: Data Preparation.
+Phase 2 cleanup of the joined parquet → final modeling table.
 """
 from __future__ import annotations
 

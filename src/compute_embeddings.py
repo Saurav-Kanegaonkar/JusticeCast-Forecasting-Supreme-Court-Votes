@@ -19,6 +19,8 @@ Usage:
     python -m src.compute_embeddings                  # encode both models
     python -m src.compute_embeddings --model mpnet    # encode only mpnet
     python -m src.compute_embeddings --model minilm
+CRISP-DM phase: Data Preparation.
+Phase 4.5 feature engineering — sentence-transformer embeddings for the embeddings track.
 """
 from __future__ import annotations
 

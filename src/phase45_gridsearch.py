@@ -13,6 +13,8 @@ Outputs:
     reports/results/phase45_test_eval.csv
     reports/results/phase45_per_justice_auc.csv
     reports/results/phase45_top_features.csv  (RF importances or LogReg coefs)
+CRISP-DM phase: Modeling.
+Phase 4.5 — embeddings GridSearchCV on the better-performing encoder.
 """
 from __future__ import annotations
 

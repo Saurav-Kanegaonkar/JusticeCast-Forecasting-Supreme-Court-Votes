@@ -6,6 +6,8 @@ first glance.
 
 Layout follows the original Louis Dorard ML Canvas (12 boxes in a 4-column
 × 3-row grid with a top-row "Goal" header).
+CRISP-DM phase: Model Deployment.
+Final reports & presentations — ML Canvas v0.4 PDF.
 """
 from __future__ import annotations
 

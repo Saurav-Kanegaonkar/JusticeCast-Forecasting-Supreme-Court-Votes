@@ -7,6 +7,8 @@ result-CSVs → same PNGs → same SHA256.
 
 Usage:
     python -m src.build_deck_charts
+CRISP-DM phase: Model Deployment.
+Final reports & presentations — Phase 7 deck-asset bundle.
 """
 from __future__ import annotations
 

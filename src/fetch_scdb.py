@@ -3,6 +3,8 @@
 SCDB serves over HTTP only (HTTPS is misconfigured at scdb.wustl.edu, but the
 data is public read-only — not a security concern). The CSV is Latin-1 /
 Windows-1252 encoded; UTF-8 read produces mojibake (e.g., `Â§`).
+CRISP-DM phase: Data Understanding.
+Data acquisition — SCDB Justice-Centered file download + Latin-1 read.
 """
 from __future__ import annotations
 

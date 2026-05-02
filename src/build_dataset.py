@@ -16,6 +16,8 @@ oral argument (e.g., Thomas in many cases) are also filtered out.
 Multi-audio cases (re-arguments, etc.) concatenate the Justice's utterances
 across ALL `oral_argument_audio[]` entries, with `n_audio_sessions` recorded
 as metadata.
+CRISP-DM phase: Data Preparation.
+Joins SCDB ↔ Oyez and derives the binary label.
 """
 from __future__ import annotations
 
