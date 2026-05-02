@@ -2,8 +2,6 @@
 
 **Forecasting Supreme Court Justice votes from oral-argument questions — a comparative study of text representations, structured around CRISP-DM.**
 
-Course project for BAX 453. Part A (pitch deck, 15 pts) + Part B (reproducible Jupyter notebook, 20 pts).
-
 ---
 
 ## 1. What this project is
@@ -23,21 +21,44 @@ The contest between the two representations is the contribution. It's a comparat
 
 ## 2. The findings
 
-**1. The standard bag-of-words toolkit hits a ceiling around ROC AUC 0.53.** All 9 baseline (vectorizer × classifier) combinations land in 0.507–0.528. Tuning lifts that to 0.532. Bigrams and trigrams add nothing. Top features are thematic legal vocabulary (`officer`, `religious`, `jury`, `sentence`) — the model is partly learning case topic, not stance.
+**1. The standard bag-of-words toolkit hits a ceiling around ROC AUC 0.53.**
+- All 9 baseline (vectorizer × classifier) combinations land in **0.507–0.528**
+- Tuning via GridSearchCV lifts that only to **0.532** (+0.4 pp)
+- Bigrams and trigrams add nothing — best vectorizer config is unigrams
+- Top features are thematic legal vocabulary (`officer`, `religious`, `jury`, `sentence`) — the model is partly learning case topic, not stance
 
-**2. Pre-trained sentence embeddings + Logistic Regression reach test ROC AUC 0.5691** — a **+3.7 percentage-point lift** over the tuned BoW winner, with no fine-tuning and no domain adaptation. The lift is **9× the entire BoW tuning gain**. A lightweight 80 MB encoder (MiniLM) plus a linear classifier outperforms a tuned 200K-feature TF-IDF + LinearSVC.
+**2. Pre-trained sentence embeddings + Logistic Regression reach test ROC AUC 0.5691.**
+- **+3.7 percentage-point lift** over the tuned BoW winner
+- The lift is **9× the entire BoW tuning gain**
+- A lightweight 80 MB encoder (MiniLM, 384-dim) plus a linear classifier outperforms a tuned 200K-feature TF-IDF + LinearSVC
+- No fine-tuning, no domain adaptation
 
-**3. The lift survives the strict honesty test.** On *contested* cases (where the case-prior doesn't pre-determine the vote and author-identity-plus-priors recovery is least useful), embeddings retain a **+4 pp per-Justice mean AUC gap** over BoW (0.532 → 0.576), and **13 of 15 Justices** are above chance with embeddings — versus 9 of 15 with BoW. The embedding gain is real bench-questioning signal, not just identity-recovery.
+**3. The lift survives the strict honesty test.**
+- On *contested* cases (where the case-prior doesn't pre-determine the vote, so author-identity-plus-priors recovery is least useful), embeddings retain a **+4 pp per-Justice mean AUC gap** over BoW (0.532 → 0.576)
+- **13 of 15 Justices** above chance with embeddings on contested cases — versus only 9 of 15 with BoW
+- The embedding gain is real bench-questioning signal, not just identity-recovery
 
-**4. The KBJackson centerpiece — the project's sharpest single finding.** With BoW, Ketanji Brown Jackson has the worst per-Justice contested AUC on the bench (0.405 — *below random*); the model can't recover any signal from her questioning. With pre-trained embeddings, her contested AUC jumps to **0.643**, a **+0.238 lift** on the strict test. Same Justice, same data, same labels — opposite conclusions about predictability depending solely on the representation. The most-engaged questioner (median 1,205 words/case, 96% speaking rate) produces text whose semantic structure pre-trained encoders capture but TF-IDF unigrams cannot.
+**4. The KBJackson centerpiece — the project's sharpest single finding.**
+- With BoW: Ketanji Brown Jackson has the **worst** per-Justice contested AUC on the bench (0.405 — *below random*); the model can't recover any signal from her questioning
+- With embeddings: her contested AUC jumps to **0.643**, a **+0.238 lift** on the strict test
+- Same Justice, same data, same labels — opposite conclusions about predictability depending solely on the representation
+- KBJackson is the most-engaged questioner (median 1,205 words/case, 96% speaking rate); pre-trained encoders capture semantic structure that TF-IDF unigrams cannot
 
-**5. Mixed evidence across the bench, reported honestly.** Embeddings win for most Justices but lose for some. Thomas: BoW 0.494 → Embeddings 0.776 (+0.282) on contested cases — the silent Justice's few utterances carry strong stance signal that embeddings extract. Kennedy regresses: BoW 0.653 → Embeddings 0.525 (-0.128) — the long-time swing-justice voting was tightly correlated with thematic case content that BoW exploited but embeddings collapse in semantic space. *Not every Justice improves with embeddings.*
+**5. Mixed evidence across the bench, reported honestly.**
+- Embeddings win for most Justices, but not all — *not every Justice improves*
+- **Thomas** gains the most: contested AUC BoW 0.494 → Embeddings 0.776 (+0.282); the silent Justice's few utterances carry strong stance signal
+- **Kennedy regresses**: BoW 0.653 → Embeddings 0.525 (−0.128); the long-time swing-justice voting was tightly correlated with thematic case content (BoW could exploit it; embeddings collapse those topical distinctions)
 
-**6. The absolute level remains modest.** AUC 0.569 is better than chance, better than BoW, but still a weak predictor in isolation. The honest framing: **lower bound on bench-reading from text alone**, before sequence-aware models, audio features (tone, pace, hesitation from the .mp3 files), or structured case-feature integration.
+**6. The absolute level remains modest.**
+- AUC 0.569 is better than chance, better than BoW, but still a weak predictor in isolation
+- The honest framing: **lower bound on bench-reading from text alone**
+- Out-of-scope frontiers that should improve it: sequence-aware models, audio features (tone, pace, hesitation from the Oyez .mp3 files), structured case-feature integration
 
 ### Why this matters for legal-tech product strategy
 
-Don't sell a TF-IDF question-classifier. The right product uses pre-trained semantic representations *at minimum*. The marginal cost over BoW is one-time CPU encoding (~12 minutes for a corpus this size). The payoff is access to semantic structure that lexical features cannot reach. In a domain where 3–4 percentage points of AUC translate to material business decisions (which Justices to prep for, where to focus amicus efforts), that gap matters.
+- **Don't sell a TF-IDF question-classifier.** The right product uses pre-trained semantic representations at minimum.
+- **Marginal cost over BoW is small**: one-time ~12 minutes of CPU encoding for a corpus this size, no fine-tuning, no GPU dependency.
+- **Payoff is access to semantic structure that lexical features cannot reach.** In a domain where 3–4 pp of AUC translates to material business decisions (which Justices to prep for, where to focus amicus efforts), that gap matters.
 
 ---
 
@@ -47,8 +68,7 @@ Don't sell a TF-IDF question-classifier. The right product uses pre-trained sema
 JusticeCast/
 ├── notebooks/
 │   ├── JusticeCast_Final.ipynb          # SUBMISSION — CRISP-DM-structured (83 cells)
-│   ├── 01_eda.ipynb                     # working — Phase 2 EDA + B1–B6 expansion
-│   └── 02_phase5_comparative.ipynb      # working — Phase 5 dive
+│   └── 01_eda.ipynb                     # working — Phase 2 EDA + B1–B6 expansion
 ├── src/                                 # 17 modules (fetchers, builders, sweeps, eval)
 │   └── modeling/splits.py               # canonical fold-0 test split (Non-Negotiable #15)
 ├── tests/                               # 9 pytest files (104 tests passing)
@@ -85,7 +105,7 @@ The submission notebook (`notebooks/JusticeCast_Final.ipynb`) is organized aroun
 | **2. Data Understanding** | Data sources (SCDB + Oyez), coverage profile, B1–B6 EDA highlights | Notebook §2; `notebooks/01_eda.ipynb` |
 | **3. Data Preparation** | Codebook-verified label, custom stopword list, train/test split discipline | Notebook §3; `src/build_dataset.py`, `src/build_modeling_table.py`, `src/text_clean.py`, `src/modeling/splits.py` |
 | **4. Modeling** | Two parallel tracks (BoW + embeddings) with baseline sweeps + GridSearchCV | Notebook §4; `src/phase3_baseline_sweep.py`, `src/phase4_gridsearch.py`, `src/phase45_baseline_sweep.py`, `src/phase45_gridsearch.py` |
-| **5. Model Evaluation** | Standard metrics + the honesty triad (per-Justice contested-cases AUC) | Notebook §5; `src/phase5_evaluation.py`; `notebooks/02_phase5_comparative.ipynb` |
+| **5. Model Evaluation** | Standard metrics + the honesty triad (per-Justice contested-cases AUC) | Notebook §5; `src/phase5_evaluation.py` |
 | **6. Model Deployment** | Deployment plan, monitoring cadence, methodological frontier | Notebook §6 |
 
 The Machine Learning Canvas (`reports/ml_canvas.pdf`) tags each box with its corresponding CRISP-DM phase. The pitch deck (`reports/JusticeCast_Pitch.ppt`) flows loosely along the same six phases without naming them in headers.
@@ -178,16 +198,3 @@ pytest                                    # 104 tests, ~20 sec
 | **Total** | **~95 min** |
 
 The bulk fetch is the only real-time bottleneck (Oyez API ≤ 1 req/sec across both fetch layers). Everything else is CPU-bound and runs comfortably on a laptop.
-
----
-
-## 6. Team
-
-BAX 453, Spring 2026 — six-person team:
-
-- Saurav Kanegaonkar
-- Amal Farhad Shaji
-- Tanmay Kallakuri
-- Vedant Tiwari
-- Vedika Shetty
-- Akansha Totre

@@ -43,8 +43,7 @@ Thumbs.db
 build/
 dist/
 
-# Internal collaboration artifacts (kept locally, not published)
-cai-plan.md
-CLAUDE.md
-build_final_notebook.py
-build_phase5_notebook.py
+# Internal CAI/CC collaboration artifacts (project plan, working notes,
+# checkpoint history, instruction files from CAI, notebook-build sources).
+# Kept locally for ongoing work, not published.
+.cai/

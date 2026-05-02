@@ -1,6 +1,7 @@
 """Phase 2: build the final modeling table from `justice_case_rows.parquet`.
 
-Applies the cleanup decisions documented in `project-state.md`:
+Applies the cleanup decisions documented in §3.4 of
+`notebooks/JusticeCast_Final.ipynb`:
   1. Drop rows with no derivable binary label (partyWinning ∈ {2, NaN} or
      majority NaN). This sweeps up the 151 NaN-label rows from Phase 1
      including the 45 unmatched (case, Justice) rows from OT2015.

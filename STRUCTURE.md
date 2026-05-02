@@ -18,7 +18,6 @@ A one-page reference. Every meaningful file in the repo with a one-line descript
 | --- | --- |
 | `notebooks/JusticeCast_Final.ipynb` | **SUBMISSION NOTEBOOK.** CRISP-DM-structured (six top-level sections matching the six CRISP-DM phases). 83 cells. Reads pre-computed CSVs from `reports/results/` and cached embeddings; Restart-and-Run-All completes in seconds. |
 | `notebooks/01_eda.ipynb` | Working notebook for Phase 2 EDA + the B1–B6 expansion (per-class log-odds, per-Justice baselines, sample-text artifact audit, vocab stats, length-vs-label, per-Justice signature) |
-| `notebooks/02_phase5_comparative.ipynb` | Working notebook for Phase 5 — full comparative evaluation including the honesty triad and extreme-utterance interpretation |
 
 ## `src/`
 
