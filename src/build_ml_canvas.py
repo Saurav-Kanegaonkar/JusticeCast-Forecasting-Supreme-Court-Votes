@@ -89,11 +89,11 @@ BOXES = [
      "• Legal-tech vendors (Lex Machina, Bloomberg Law, Westlaw Edge, SCOTUSblog) — embedded research workflow\n"
      "• Litigation press (same-day forecast articles)"),
     (3, 2, "Headline Result", "Model Evaluation",
-     "• Test ROC AUC: BoW 0.532 → Embeddings 0.569 (+3.7 pp)\n"
-     "• Contested-cases mean per-Justice AUC: 0.532 → 0.576 (+4 pp)\n"
-     "• Justices > 0.5 (contested): 9/15 BoW → 13/15 Embeddings\n"
-     "• KBJackson centerpiece: 0.405 → 0.643 (+0.238) on contested\n"
-     "• Lightweight MiniLM beats tuned BoW on the strict test"),
+     "• Test ROC AUC: 0.532 → 0.569 (+3.7 pp)\n"
+     "• Contested per-Justice AUC: 0.532 → 0.576 (+4 pp)\n"
+     "• Above chance (contested): 9/15 → 13/15 Justices\n"
+     "• KBJackson flip: 0.405 → 0.643 (+0.238)\n"
+     "• Lightweight MiniLM beats tuned BoW"),
 ]
 
 
