@@ -498,16 +498,23 @@ def render_ml_canvas_summary():
                                    facecolor=color, edgecolor="none",
                                    alpha=0.45))
 
-    # Wrap body text to fit the box width (~38 chars at fontsize=6.5
-    # in a 0.85-axes-unit-wide box at FIGSIZE_FULL). Preserve explicit
-    # line breaks so bullet lists stay structured.
+    # Wrap body text to fit the box width (~38 chars at fontsize=6.0 in
+    # the 0.85-axes-unit-wide box at FIGSIZE_FULL). Preserve explicit \n.
+    # Bullet lines get subsequent_indent="  " so wrapped continuations stay
+    # aligned under the bullet text (not under the bullet glyph).
     def _wrap_body(text: str, width: int = 38) -> str:
-        return "\n".join(
-            textwrap.fill(line, width=width, break_long_words=False,
-                          replace_whitespace=False)
-            if line.strip() else ""
-            for line in text.split("\n")
-        )
+        out = []
+        for line in text.split("\n"):
+            if not line.strip():
+                out.append("")
+                continue
+            is_bullet = line.lstrip().startswith("•")
+            out.append(textwrap.fill(
+                line, width=width,
+                break_long_words=False, replace_whitespace=False,
+                subsequent_indent="  " if is_bullet else "",
+            ))
+        return "\n".join(out)
 
     for col, row, title, phase, body in BOXES:
         x, y = col * 1.0, (2 - row) * 1.0

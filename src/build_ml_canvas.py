@@ -32,6 +32,9 @@ GOAL_HEADER = (
 GOAL_PHASE = "Business Understanding"
 
 # (column, row, title, phase_tag, body)
+# Body convention: every box is a flat bullet list using "• ". Long bullets
+# wrap automatically; the renderer keeps wrapped continuation lines indented
+# under the bullet via textwrap.fill(subsequent_indent="  ").
 BOXES = [
     # ── Predict (left two columns) ──────────────────────────────────────────
     (0, 0, "Decisions", "Business Understanding",
@@ -40,77 +43,79 @@ BOXES = [
      "• Amicus brief targeting (post-argument, hours after)\n"
      "• Historical bench-reading benchmarks (research, continuous)"),
     (1, 0, "ML Task", "Modeling",
-     "Binary stance classification per (case, Justice) row:\n"
-     "label = voted_petitioner ∈ {0, 1}\n"
-     "Comparative study: BoW vs pre-trained embeddings"),
+     "• Binary stance classification per (case, Justice) row\n"
+     "• Label: voted_petitioner ∈ {0, 1}\n"
+     "• Comparative study: BoW vs pre-trained embeddings"),
     (0, 1, "Offline Evaluation", "Model Evaluation",
-     "Test ROC AUC on canonical fold-0\n"
-     "5-fold CV mean ± std (StratifiedGroupKFold by case_id)\n"
-     "Per-Justice contested-cases AUC (the strict test)\n"
-     "Per-Justice lift over individual baseline"),
+     "• Test ROC AUC on canonical fold-0\n"
+     "• 5-fold CV mean ± std (StratifiedGroupKFold by case_id)\n"
+     "• Per-Justice contested-cases AUC (the strict test)\n"
+     "• Per-Justice lift over individual baseline"),
     (1, 1, "Making Predictions", "Modeling",
-     "Per-Justice per-case forecast within hours of oral argument.\n"
-     "Threshold tunable per consumer use case:\n"
+     "• Per-Justice per-case forecast within hours of oral argument\n"
+     "• Threshold tunable per consumer use case\n"
      "• Litigators: FN-tilted (recall on petitioner side)\n"
      "• Amicus: FP-tilted (precision on petitioner side)"),
     (0, 2, "Live Evaluation & Monitoring", "Model Deployment",
-     "Track per-term ROC AUC and per-Justice contested AUC.\n"
-     "Flag if AUC drops > 5 pp term-over-term — audit bench\n"
-     "composition + case-mix shifts.\n"
-     "Justice composition changes require justice_id_map updates."),
+     "• Track per-term ROC AUC and per-Justice contested AUC\n"
+     "• Flag if AUC drops > 5 pp term-over-term (audit bench composition + case-mix shifts)\n"
+     "• Justice composition changes require justice_id_map updates"),
     (1, 2, "Building Models", "Modeling",
-     "Annual retrain after each SCOTUS term ends (June).\n"
-     "Re-encode new term transcripts via compute_embeddings.py\n"
-     "(~12 min CPU). Refit LogReg on full historical corpus.\n"
-     "Re-verify SCDB codebook semantics each major release."),
+     "• Annual retrain after each SCOTUS term ends (June)\n"
+     "• Re-encode new term transcripts via compute_embeddings.py (~12 min CPU)\n"
+     "• Refit LogReg on full historical corpus\n"
+     "• Re-verify SCDB codebook semantics each major release"),
     # ── Learn (right two columns) ───────────────────────────────────────────
     (2, 0, "Value Propositions", "Business Understanding",
-     "Empirical lower bound on text-only bench-reading;\n"
-     "methodological evidence that pre-trained semantics\n"
-     "outperform tuned bag-of-words by ~4 pp on the strict\n"
-     "contested-cases test. Don't sell TF-IDF — sell semantic\n"
-     "representations as the floor."),
+     "• Empirical lower bound on text-only bench-reading\n"
+     "• Pre-trained semantics outperform tuned BoW by ~4 pp on contested cases\n"
+     "• Don't sell TF-IDF — sell semantic representations as the floor"),
     (3, 0, "Data Sources", "Data Understanding",
-     "SCDB Justice-Centered file (release 2025_01, Latin-1\n"
-     "encoded, 83,644 vote rows × 61 cols) — labels\n"
-     "Oyez REST API (2-step fetch: case meta → transcript\n"
-     "audio JSON, ≤1 req/sec) — text\n"
-     "Both free, public, no auth."),
+     "• SCDB Justice-Centered file (release 2025_01, Latin-1, 83,644 vote rows × 61 cols) — labels\n"
+     "• Oyez REST API (2-step fetch: case meta → transcript audio JSON, ≤1 req/sec) — text\n"
+     "• Both free, public, no auth"),
     (2, 1, "Collecting Data", "Data Understanding",
-     "Per-term refresh after each SCOTUS term ends.\n"
-     "SCDB: single annual download.\n"
-     "Oyez: incremental fetch of new (term, docket) pairs;\n"
-     "both layers cached on disk (377 MB for the 2005-2024 window)."),
+     "• Per-term refresh after each SCOTUS term ends\n"
+     "• SCDB: single annual download\n"
+     "• Oyez: incremental fetch of new (term, docket) pairs\n"
+     "• Both layers cached on disk (377 MB for the 2005-2024 window)"),
     (3, 1, "Features", "Data Preparation",
-     "Track 1 (BoW): TF-IDF + n-grams (200K-dim sparse)\n"
-     "  + 424-term custom stopword list + advocate-name regex\n"
-     "Track 2 (Embeddings): all-MiniLM-L6-v2 (384-dim dense)\n"
-     "  pre-trained, no fine-tuning, no stopword list\n"
-     "Identical fold-0 test rows for both tracks (Non-Neg #15)."),
+     "• Track 1 (BoW): TF-IDF + n-grams (200K-dim sparse) + 424-term custom stopword list + advocate-name regex\n"
+     "• Track 2 (Embeddings): all-MiniLM-L6-v2 (384-dim dense), pre-trained, no fine-tuning, no stopword list\n"
+     "• Identical fold-0 test rows for both tracks (Non-Neg #15)"),
     (2, 2, "Stakeholders", "Business Understanding",
-     "Appellate litigators (pre-argument prep)\n"
-     "Amicus brief authors (post-argument filing decisions)\n"
-     "Legal-tech vendors (Lex Machina, Bloomberg Law,\n"
-     "  Westlaw Edge, SCOTUSblog) — embedded research workflow\n"
-     "Litigation press (same-day forecast articles)"),
+     "• Appellate litigators (pre-argument prep)\n"
+     "• Amicus brief authors (post-argument filing decisions)\n"
+     "• Legal-tech vendors (Lex Machina, Bloomberg Law, Westlaw Edge, SCOTUSblog) — embedded research workflow\n"
+     "• Litigation press (same-day forecast articles)"),
     (3, 2, "Headline Result", "Model Evaluation",
-     "Test ROC AUC: BoW 0.532 → Embeddings 0.569 (+3.7 pp)\n"
-     "Contested-cases mean per-Justice AUC: 0.532 → 0.576 (+4 pp)\n"
-     "Justices > 0.5 (contested): 9/15 BoW → 13/15 Embeddings\n"
-     "KBJackson centerpiece: 0.405 → 0.643 (+0.238) on contested.\n"
-     "Lightweight MiniLM beats tuned BoW on the strict test."),
+     "• Test ROC AUC: BoW 0.532 → Embeddings 0.569 (+3.7 pp)\n"
+     "• Contested-cases mean per-Justice AUC: 0.532 → 0.576 (+4 pp)\n"
+     "• Justices > 0.5 (contested): 9/15 BoW → 13/15 Embeddings\n"
+     "• KBJackson centerpiece: 0.405 → 0.643 (+0.238) on contested\n"
+     "• Lightweight MiniLM beats tuned BoW on the strict test"),
 ]
 
 
 def _wrap_body(text: str, width: int = 42) -> str:
-    """Wrap each existing line to ~`width` chars, preserving explicit \\n breaks
-    (so bullet structures stay intact)."""
-    return "\n".join(
-        textwrap.fill(line, width=width, break_long_words=False,
-                      replace_whitespace=False)
-        if line.strip() else ""
-        for line in text.split("\n")
-    )
+    """Wrap each line to ~`width` chars, preserving explicit \\n breaks.
+
+    Bullet lines (start with `•`) get `subsequent_indent="  "` so wrapped
+    continuation lines align under the bullet text, not under the bullet
+    glyph itself.
+    """
+    out = []
+    for line in text.split("\n"):
+        if not line.strip():
+            out.append("")
+            continue
+        is_bullet = line.lstrip().startswith("•")
+        out.append(textwrap.fill(
+            line, width=width,
+            break_long_words=False, replace_whitespace=False,
+            subsequent_indent="  " if is_bullet else "",
+        ))
+    return "\n".join(out)
 
 
 def _draw_box(ax, x, y, w, h, title, phase_tag, body):
