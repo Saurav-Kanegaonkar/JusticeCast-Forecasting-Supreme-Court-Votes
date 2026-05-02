@@ -83,7 +83,7 @@ JusticeCast/
 │   ├── proposal.md                      # 1-page proposal sent to professor (4/26)
 │   ├── ml_canvas.pdf                    # ML Canvas v0.4 with CRISP-DM phase tags
 │   ├── JusticeCast_Pitch.ppt            # Phase 7 pitch deck (PowerPoint, 11 slides; team-editable)
-│   ├── checkpoint1_summary.md           # auto-generated Phase 1 report
+│   ├── phase1_data_audit.md             # auto-generated Phase 1 data-audit report
 │   ├── deck_assets/                     # 8 chart PNGs + 4 markdown specs (Phase 7)
 │   └── results/                         # 25+ result CSVs across Phases 1–5
 ├── requirements.in / requirements.txt   # pinned Python 3.14 deps
