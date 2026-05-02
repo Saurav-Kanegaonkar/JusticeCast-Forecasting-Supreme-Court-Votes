@@ -42,6 +42,20 @@ C_RANDOM = "#888888"        # chance line
 FONT_SERIF = "DejaVu Serif"     # widely available; substitutes for Lora/Playfair
 FONT_SANS = "DejaVu Sans"       # widely available; substitutes for Inter/Source Sans
 
+# Navy-family palette for the 3 BoW classifier families. All shades stay in
+# the deck's navy + warm-gold neighborhood so the BoW chart reads as one
+# cohesive group rather than a Christmas-tree blue/green/red.
+CLF_COLORS = {
+    "logreg":        "#2E5C8A",  # deep blue (BoW primary)
+    "linear_svc":    "#7A8A9E",  # muted slate blue
+    "random_forest": "#8C6E2E",  # bronze — warm complement of the gold accent
+}
+CLF_LABELS = {
+    "logreg":        "LogReg",
+    "linear_svc":    "LinearSVC",
+    "random_forest": "RandomForest",
+}
+
 # 16:9 widescreen at 1920×1080 native; saved at dpi=160 (= exact 1920×1080).
 # For retina sharpness in the deck, the extension can upscale or we save at
 # 2x via savefig dpi=320 (= 3840×2160).
@@ -81,9 +95,27 @@ def _set_global_style():
     })
 
 
-def _serif_title(ax, text, pad=14):
-    ax.set_title(text, fontfamily=FONT_SERIF, color=C_NAVY,
-                 fontweight="bold", pad=pad)
+def _title_and_subtitle(fig, ax, title, subtitle=None,
+                         title_y=0.95, subtitle_y=0.905, top_margin=0.85):
+    """Place title + optional subtitle in FIGURE coordinates so they never
+    collide with the axes. Reserves headroom via subplots_adjust(top=...).
+
+    Title — bold serif navy, fontsize 17 — at title_y in figure coords.
+    Subtitle — italic serif grey, fontsize 11 — at subtitle_y.
+    Top margin — fraction of the figure reserved for the title block.
+    """
+    fig.subplots_adjust(top=top_margin)
+    fig.text(0.5, title_y, title,
+             ha="center", va="bottom",
+             fontfamily=FONT_SERIF, fontweight="bold",
+             color=C_NAVY, fontsize=17)
+    if subtitle:
+        fig.text(0.5, subtitle_y, subtitle,
+                 ha="center", va="bottom",
+                 fontfamily=FONT_SERIF, fontstyle="italic",
+                 color=C_TEXT_GREY, fontsize=11)
+    # Suppress any axes-level title that may be set elsewhere
+    ax.set_title("")
 
 
 def _save(fig, name: str):
@@ -147,14 +179,12 @@ def chart_bow_vs_embeddings_3slice():
     ax.set_xticklabels(slices, fontsize=11)
     ax.set_ylim(0.45, 0.65)
     ax.set_ylabel("ROC AUC")
-    _serif_title(ax, "Embedding lift survives the strict contested-cases test",
-                 pad=18)
-    ax.text(0.5, 1.04, "BoW vs Embeddings on identical fold-0 test rows",
-            transform=ax.transAxes, ha="center", va="bottom",
-            fontfamily=FONT_SERIF, fontstyle="italic",
-            color=C_TEXT_GREY, fontsize=11)
     ax.legend(loc="upper left", framealpha=0.9)
-    fig.tight_layout()
+    _title_and_subtitle(
+        fig, ax,
+        "Embedding lift survives the strict contested-cases test",
+        "BoW vs Embeddings on identical fold-0 test rows",
+    )
     _save(fig, "chart_bow_vs_embeddings_3slice.png")
 
 
@@ -192,17 +222,13 @@ def chart_per_justice_lift():
     ax.set_yticklabels(pivot["oyez_identifier"], fontsize=10)
     ax.set_xlabel("Lift over per-Justice baseline (model accuracy − baseline)",
                   fontsize=11)
-    _serif_title(ax,
-                 "Per-Justice lift over individual baselines — both tracks",
-                 pad=14)
-    ax.text(0.5, 1.04,
-            "KBJackson and Thomas highlighted (darker outline)",
-            transform=ax.transAxes, ha="center", va="bottom",
-            fontfamily=FONT_SERIF, fontstyle="italic",
-            color=C_TEXT_GREY, fontsize=10)
     ax.invert_yaxis()
     ax.legend(loc="lower right", framealpha=0.9)
-    fig.tight_layout()
+    _title_and_subtitle(
+        fig, ax,
+        "Per-Justice lift over individual baselines — both tracks",
+        "KBJackson and Thomas highlighted (darker outline)",
+    )
     _save(fig, "chart_per_justice_lift.png")
 
 
@@ -246,14 +272,12 @@ def chart_kbjackson_flip():
 
     ax.set_ylim(0.0, 0.85)
     ax.set_ylabel("Per-Justice ROC AUC (contested cases)")
-    _serif_title(ax, "KBJackson — same Justice, opposite verdicts", pad=14)
-    ax.text(0.5, 1.04,
-            "Contested-cases AUC: 0.405 (worst on bench) → 0.643 (3rd best)",
-            transform=ax.transAxes, ha="center", va="bottom",
-            fontfamily=FONT_SERIF, fontstyle="italic",
-            color=C_TEXT_GREY, fontsize=10)
     ax.legend(loc="lower right", framealpha=0.9)
-    fig.tight_layout()
+    _title_and_subtitle(
+        fig, ax,
+        "KBJackson — same Justice, opposite verdicts",
+        "Contested-cases AUC: 0.405 (worst on bench) → 0.643 (3rd best)",
+    )
     _save(fig, "chart_kbjackson_flip.png")
 
 
@@ -263,15 +287,13 @@ def chart_kbjackson_flip():
 
 def chart_bow_baselines():
     bow = pd.read_csv(R / "baseline_results.csv").sort_values("roc_auc")
-    fam_color = {"logreg": C_BOW, "linear_svc": "#2ca02c", "random_forest": "#c44"}
-    fam_label = {"logreg": "LogReg", "linear_svc": "LinearSVC", "random_forest": "RandomForest"}
-    bow["color"] = bow["classifier"].map(fam_color)
+    bow["color"] = bow["classifier"].map(CLF_COLORS)
 
     fig, ax = plt.subplots(figsize=FIGSIZE_FULL)
     y = np.arange(len(bow))
-    bars = ax.barh(y, bow["roc_auc"], color=bow["color"], edgecolor=C_NAVY, linewidth=0.6)
-    ax.axvline(0.5, color=C_RANDOM, linestyle="--", linewidth=1.2,
-               label="random (AUC 0.50)")
+    bars = ax.barh(y, bow["roc_auc"], color=bow["color"],
+                   edgecolor=C_NAVY, linewidth=0.6)
+    ax.axvline(0.5, color=C_RANDOM, linestyle="--", linewidth=1.2)
     for bar, auc in zip(bars, bow["roc_auc"]):
         ax.text(auc + 0.0015, bar.get_y() + bar.get_height() / 2,
                 f"{auc:.3f}", va="center", fontsize=9, color=C_TEXT)
@@ -280,20 +302,19 @@ def chart_bow_baselines():
     ax.set_yticklabels(bow["combo_id"], fontsize=10)
     ax.set_xlim(0.49, 0.55)
     ax.set_xlabel("Test ROC AUC")
-    _serif_title(ax,
-                 "Bag-of-words baselines cluster at 0.51-0.53 — a real ceiling",
-                 pad=14)
-    ax.text(0.5, 1.04,
-            "9 combinations: 3 vectorizers × 3 classifiers, untuned",
-            transform=ax.transAxes, ha="center", va="bottom",
-            fontfamily=FONT_SERIF, fontstyle="italic",
-            color=C_TEXT_GREY, fontsize=10)
-    handles = [mpatches.Patch(facecolor=c, edgecolor=C_NAVY, label=fam_label[k])
-               for k, c in fam_color.items()]
+
+    handles = [mpatches.Patch(facecolor=c, edgecolor=C_NAVY,
+                              label=CLF_LABELS[k])
+               for k, c in CLF_COLORS.items()]
     handles.append(plt.Line2D([0], [0], color=C_RANDOM, linestyle="--",
                               linewidth=1.2, label="random (0.50)"))
     ax.legend(handles=handles, loc="lower right", framealpha=0.9)
-    fig.tight_layout()
+
+    _title_and_subtitle(
+        fig, ax,
+        "Bag-of-words baselines cluster at 0.51–0.53 — a real ceiling",
+        "9 combinations: 3 vectorizers × 3 classifiers, untuned",
+    )
     _save(fig, "chart_bow_baselines.png")
 
 
@@ -327,14 +348,6 @@ def chart_embeddings_baselines():
     ax.set_yticklabels(emb["combo_id"], fontsize=10)
     ax.set_xlim(0.49, 0.59)
     ax.set_xlabel("Test ROC AUC")
-    _serif_title(ax,
-                 "Every embedding combination beats the BoW baseline best",
-                 pad=14)
-    ax.text(0.5, 1.04,
-            "6 combinations: 2 embedding models × 3 classifiers, untuned",
-            transform=ax.transAxes, ha="center", va="bottom",
-            fontfamily=FONT_SERIF, fontstyle="italic",
-            color=C_TEXT_GREY, fontsize=10)
     handles = [mpatches.Patch(facecolor=c, edgecolor=C_NAVY, label=label_map[k])
                for k, c in color_map.items()]
     handles.append(plt.Line2D([0], [0], color=C_BOW, linestyle=":", linewidth=1.6,
@@ -342,7 +355,11 @@ def chart_embeddings_baselines():
     handles.append(plt.Line2D([0], [0], color=C_RANDOM, linestyle="--", linewidth=1.2,
                               label="random (0.50)"))
     ax.legend(handles=handles, loc="lower right", framealpha=0.9)
-    fig.tight_layout()
+    _title_and_subtitle(
+        fig, ax,
+        "Every embedding combination beats the BoW baseline best",
+        "6 combinations: 2 embedding models × 3 classifiers, untuned",
+    )
     _save(fig, "chart_embeddings_baselines.png")
 
 
@@ -378,18 +395,16 @@ def chart_data_pipeline_funnel():
     ax.set_xscale("log")
     ax.set_xlim(1000, max(counts) * 1.5)
     ax.set_xlabel("Count (log scale)")
-    _serif_title(ax, "Data pipeline funnel — fetch then cleanup", pad=14)
-    ax.text(0.5, 1.04,
-            "Case-level fetch (top 4) → row-level cleanup (bottom 4)",
-            transform=ax.transAxes, ha="center", va="bottom",
-            fontfamily=FONT_SERIF, fontstyle="italic",
-            color=C_TEXT_GREY, fontsize=10)
     handles = [mpatches.Patch(facecolor=C_BOW, edgecolor=C_NAVY,
                               label="case-level (Phase 1 fetch)"),
                mpatches.Patch(facecolor=C_EMB, edgecolor=C_NAVY,
                               label="row-level (Phase 2 cleanup)")]
     ax.legend(handles=handles, loc="lower right", framealpha=0.9)
-    fig.tight_layout()
+    _title_and_subtitle(
+        fig, ax,
+        "Data pipeline funnel — fetch then cleanup",
+        "Case-level fetch (top 4) → row-level cleanup (bottom 4)",
+    )
     _save(fig, "chart_data_pipeline_funnel.png")
 
 
