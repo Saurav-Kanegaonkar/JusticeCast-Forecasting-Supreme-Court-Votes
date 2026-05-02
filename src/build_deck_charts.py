@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -497,6 +498,17 @@ def render_ml_canvas_summary():
                                    facecolor=color, edgecolor="none",
                                    alpha=0.45))
 
+    # Wrap body text to fit the box width (~38 chars at fontsize=6.5
+    # in a 0.85-axes-unit-wide box at FIGSIZE_FULL). Preserve explicit
+    # line breaks so bullet lists stay structured.
+    def _wrap_body(text: str, width: int = 38) -> str:
+        return "\n".join(
+            textwrap.fill(line, width=width, break_long_words=False,
+                          replace_whitespace=False)
+            if line.strip() else ""
+            for line in text.split("\n")
+        )
+
     for col, row, title, phase, body in BOXES:
         x, y = col * 1.0, (2 - row) * 1.0
         ax.add_patch(FancyBboxPatch((x + 0.05, y + 0.05), 0.90, 0.90,
@@ -508,8 +520,9 @@ def render_ml_canvas_summary():
                 fontfamily=FONT_SERIF)
         ax.text(x + 0.5, y + 0.78, f"[{phase}]", ha="center", va="top",
                 fontsize=7, fontstyle="italic", color=C_TEXT_GREY)
-        ax.text(x + 0.10, y + 0.68, body, ha="left", va="top",
-                fontsize=6.5, color=C_TEXT)
+        ax.text(x + 0.08, y + 0.68, _wrap_body(body),
+                ha="left", va="top",
+                fontsize=6.0, color=C_TEXT, linespacing=1.25)
 
     fig.text(0.5, 0.02,
              "Each box tagged with its CRISP-DM phase. Predict (left) vs Learn (right) "

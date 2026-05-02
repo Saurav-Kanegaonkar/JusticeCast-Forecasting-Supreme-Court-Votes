@@ -11,6 +11,7 @@ Final reports & presentations — ML Canvas v0.4 PDF.
 """
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -101,6 +102,17 @@ BOXES = [
 ]
 
 
+def _wrap_body(text: str, width: int = 42) -> str:
+    """Wrap each existing line to ~`width` chars, preserving explicit \\n breaks
+    (so bullet structures stay intact)."""
+    return "\n".join(
+        textwrap.fill(line, width=width, break_long_words=False,
+                      replace_whitespace=False)
+        if line.strip() else ""
+        for line in text.split("\n")
+    )
+
+
 def _draw_box(ax, x, y, w, h, title, phase_tag, body):
     """Draw a single labeled box."""
     pad = 0.04
@@ -117,10 +129,10 @@ def _draw_box(ax, x, y, w, h, title, phase_tag, body):
     ax.text(x + 0.5 * w, y + h - 0.21,
             f"[{phase_tag}]", ha="center", va="top",
             fontsize=6.5, fontstyle="italic", color="#5a6b85")
-    # Body
-    ax.text(x + 0.10, y + h - 0.32,
-            body, ha="left", va="top",
-            fontsize=6.5, color="#1f2a44", wrap=True)
+    # Body — pre-wrapped to fit within (w − 2*0.10) at fontsize=6.0
+    ax.text(x + 0.08, y + h - 0.32, _wrap_body(body),
+            ha="left", va="top",
+            fontsize=6.0, color="#1f2a44", linespacing=1.25)
 
 
 def render() -> None:
