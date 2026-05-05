@@ -21,9 +21,21 @@ resolution. Repeated CV with N reps × 5 folds (different `random_state`
 per rep) tightens the CI on the mean lift estimate. Note: this is NOT
 N×5 independent samples — within a rep the fold splits use one
 random_state, and across reps you're sampling from the
-"fold-realization distribution," not the data-generating process. So
-treat the tighter CI as a better point estimate of generalization
-performance, not as a power increase.
+"fold-realization distribution," not the data-generating process.
+
+Nadeau-Bengio correction (Nadeau & Bengio, 2003, "Inference for the
+Generalization Error"): the naive paired t-test on `n` repeated-CV
+realizations treats them as i.i.d. and inflates the t-statistic. The
+corrected variance is
+
+    Var_NB(diff) = σ² × (1/n + n_test / n_train)
+
+vs the naive 1/n. With 80/20 splits and n=50, the corrected SE is
+roughly √(0.27 / 0.02) ≈ 3.7× wider than the naive SE. This module
+reports BOTH the naive and the NB-corrected p-value and CI; the
+NB-corrected number is the one that should appear in any methodology
+claim where dependence-aware variance estimation matters (i.e. always
+in a paper, generally also in a serious project).
 
 Inputs:
     data/processed/modeling_table.parquet
@@ -201,28 +213,61 @@ def _print_summary(out: pd.DataFrame, n_reps: int) -> None:
     n_emb_wins = (out["diff_emb_bow"] > 0).sum()
     print(f"  Realizations where embeddings > BoW: {n_emb_wins} / {len(out)}")
 
-    # Paired t-test on per-fold diffs (H0: mean diff == 0)
+    # Paired t-test on per-fold diffs (H0: mean diff == 0).
+    # NAIVE: treats each realization as iid (inflates t-statistic in repeated CV).
+    n = len(out)
+    df_resid = n - 1
+    mean_diff = out["diff_emb_bow"].mean()
+    sd_diff = out["diff_emb_bow"].std(ddof=1)
+
     t_stat, p_val = stats.ttest_1samp(out["diff_emb_bow"], 0.0)
-    df_resid = len(out) - 1
     t_crit = stats.t.ppf(0.975, df_resid)
-    se = out["diff_emb_bow"].std(ddof=1) / np.sqrt(len(out))
-    ci_lo = out["diff_emb_bow"].mean() - t_crit * se
-    ci_hi = out["diff_emb_bow"].mean() + t_crit * se
+    se = sd_diff / np.sqrt(n)
+    ci_lo = mean_diff - t_crit * se
+    ci_hi = mean_diff + t_crit * se
     print()
-    print("Paired t-test on per-realization diffs (H0: mean diff = 0):")
+    print("Paired t-test on per-realization diffs (H0: mean diff = 0) — NAIVE:")
     print(f"  t-stat:  {t_stat:+.3f}  (df={df_resid})")
-    print(f"  p-value: {p_val:.4f}")
+    print(f"  p-value: {p_val:.4g}")
     print(f"  95% CI for mean diff: [{ci_lo:+.4f}, {ci_hi:+.4f}]")
-    if p_val < 0.05:
-        print("  → Reject H0: mean lift is statistically significant.")
-    else:
-        print("  → Fail to reject H0: mean lift is within realization-to-realization noise.")
+
+    # NADEAU-BENGIO corrected variance for repeated CV (Nadeau & Bengio 2003).
+    # Var_NB = σ² × (1/n + n_test / n_train). Only meaningful for n_reps > 1
+    # (with a single canonical 5-fold the "naive" already is the right one).
     if n_reps > 1:
+        mean_n_train = out["n_train"].mean()
+        mean_n_test = out["n_test"].mean()
+        nb_factor = 1.0 / n + mean_n_test / mean_n_train
+        nb_se = sd_diff * np.sqrt(nb_factor)
+        nb_t = mean_diff / nb_se if nb_se > 0 else 0.0
+        nb_p = float(2 * (1 - stats.t.cdf(abs(nb_t), df=df_resid)))
+        nb_ci_lo = mean_diff - t_crit * nb_se
+        nb_ci_hi = mean_diff + t_crit * nb_se
         print()
-        print("Caveat: repeated CV gives a tighter CI on the mean-lift point estimate, "
-              "but the realizations are NOT independent samples (same data, different "
-              "split random_states). Treat as better generalization-performance estimate, "
-              "not as a power boost.")
+        print("Nadeau-Bengio corrected paired t-test (accounts for "
+              "non-independence of repeated-CV realizations):")
+        print(f"  Var inflation factor: 1/{n} + {mean_n_test:.0f}/{mean_n_train:.0f} = "
+              f"{nb_factor:.4f}  (SE multiplier ≈ {np.sqrt(nb_factor / (1.0/n)):.2f}×)")
+        print(f"  Corrected t-stat: {nb_t:+.3f}  (df={df_resid})")
+        print(f"  Corrected p-value: {nb_p:.4g}")
+        print(f"  Corrected 95% CI for mean diff: "
+              f"[{nb_ci_lo:+.4f}, {nb_ci_hi:+.4f}]")
+
+        if nb_p < 0.05:
+            print("  → Reject H0 (NB-corrected): mean lift is statistically significant.")
+        else:
+            print("  → Fail to reject H0 (NB-corrected): mean lift is within "
+                  "realization-to-realization noise after dependence correction.")
+        print()
+        print("The NB-corrected p-value/CI is the load-bearing one. The naive p-value "
+              "above treats the 50 realizations as iid, which they are not (same data, "
+              "different split random_state). Reporting both for transparency, but a "
+              "stats-aware reviewer should look at the corrected number.")
+    else:
+        if p_val < 0.05:
+            print("  → Reject H0: mean lift is statistically significant.")
+        else:
+            print("  → Fail to reject H0: mean lift is within fold-to-fold noise.")
 
 
 def main() -> None:

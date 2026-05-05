@@ -27,7 +27,7 @@ The contest between the two representations is the contribution. It's a comparat
 - Bigrams and trigrams add nothing — best vectorizer config is unigrams
 - Top features are thematic legal vocabulary (`officer`, `religious`, `jury`, `sentence`) — the model is partly learning case topic, not stance
 
-**2. Pre-trained sentence embeddings beat BoW by a small but reliably measurable margin.**
+**2. Pre-trained sentence embeddings beat BoW by a small but statistically significant margin.**
 
 Three hypothesis tests, three lenses on the same effect:
 
@@ -35,13 +35,13 @@ Three hypothesis tests, three lenses on the same effect:
 | --- | --- | :-: | :-: | :-: | :-: |
 | **DeLong's paired** (fold 0) | "Is the gap on the canonical fold real, or noise within those 2,007 paired predictions?" | +0.0368 | 2,007 rows | **0.023** | [+0.005, +0.068] |
 | **5-fold paired t** | "Does the gap persist across different held-out folds?" (canonical n=5) | +0.0139 | 5 folds | 0.18 | [-0.010, +0.038] |
-| **10×5 repeated CV paired t** | "Same question, with enough resolution to detect a small effect." | **+0.0176** | 50 fold-realizations | **<0.001** | **[+0.014, +0.021]** |
+| **10×5 repeated CV, Nadeau-Bengio corrected** | "Same question, but with adequate resolution AND dependence-aware variance for repeated CV." | **+0.0176** | 50 fold-realizations | **0.013** | **[+0.004, +0.031]** |
 
-**The headline is the bottom row.** With observed std ≈ 0.019 across folds and a true mean diff ≈ 0.014, a paired t-test on n=5 folds is genuinely underpowered (would need ≈ 15–20 folds to detect this size effect at α=0.05). Repeated CV (10 reps × 5 folds, different `random_state` per rep) gives 50 fold-realizations and tightens the CI without false-claiming more independent data — the effect is small (~1.4–2.1 pp), but consistent (47 of 50 realizations favor embeddings) and well-estimated.
+**The headline is the bottom row.** With observed std ≈ 0.019 across folds and a true mean diff ≈ 0.014, a paired t-test on n=5 folds is genuinely underpowered (would need ≈ 15–20 folds to detect this size effect at α=0.05). Repeated CV (10 reps × 5 folds) gives 50 fold-realizations — but the realizations aren't independent (same data, different split `random_state`), so the standard correction is **Nadeau & Bengio (2003)**: variance inflated by `1/n + n_test/n_train` to account for the dependence. With our 80/20 splits and n=50 the correction widens the SE by ≈ 3.67×. After correction the lift is still significant (p=0.013) but the CI honestly reflects uncertainty: **+0.4 to +3.1 pp typical AUC lift**.
 
-- **Honest summary**: embeddings beat BoW by **~1.4–2.1 percentage points typical AUC lift** (10×5 repeated CV), the gap is **statistically significant** when tested with adequate resolution (p<0.001 at n=50), but it's **modest in absolute size**. The original "+3.7 pp" headline was the lucky end of the fold-realization distribution, not the typical effect.
+- **Honest summary**: embeddings beat BoW by **~0.4 to +3.1 percentage points typical AUC lift** (10×5 repeated CV, Nadeau-Bengio corrected; point estimate +1.76 pp). Effect is **statistically significant** (p=0.013) but **modest** in absolute size. **47 of 50 realizations favor embeddings** — directional finding is unambiguous independent of the variance question.
+- The original "+3.7 pp" headline was the lucky end of the fold-realization distribution, not the typical effect.
 - Lightweight 80 MB encoder (MiniLM, 384-dim) plus linear classifier ≈ tuned 200K-feature TF-IDF + LinearSVC; no fine-tuning, no GPU.
-- Caveat on repeated CV: 50 realizations are NOT 50 independent samples — they're 50 different splits of the same dataset. The tighter CI is a better point estimate of generalization performance, not a power increase. The direction of the effect (+) is robust; the magnitude is well-estimated for *this* dataset.
 
 **3. Contested-case slice is consistent with the headline story.**
 - On *contested* cases (where the case-prior doesn't pre-determine the vote, removing the easy "everyone votes the modal way in unanimous cases" signal), embeddings retain a **+4 pp per-Justice mean AUC gap** over BoW on fold 0 (0.532 → 0.576)
