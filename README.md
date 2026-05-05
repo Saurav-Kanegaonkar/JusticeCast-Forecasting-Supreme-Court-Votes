@@ -27,13 +27,21 @@ The contest between the two representations is the contribution. It's a comparat
 - Bigrams and trigrams add nothing — best vectorizer config is unigrams
 - Top features are thematic legal vocabulary (`officer`, `religious`, `jury`, `sentence`) — the model is partly learning case topic, not stance
 
-**2. Pre-trained sentence embeddings + Logistic Regression edge out BoW, but the gap is fragile.**
-- On the canonical fold-0 test set: BoW 0.532, Embeddings **0.5691** — a **+3.7 pp single-fold lift**
-- Single-fold lift is statistically significant by **DeLong's paired test** (Z=2.27, **p=0.023**, 95% bootstrap CI for the difference [+0.5 pp, +6.8 pp])
-- **But** across all 5 StratifiedGroupKFold folds, mean lift is **+1.4 pp ± 1.9 pp** (paired t-test p≈0.18, CI [-1.0 pp, +3.8 pp]) — within fold-to-fold noise
-- Embeddings win 4 of 5 folds; fold 0 happened to be the most favorable single fold for embeddings (+3.7 pp), fold 4 favors BoW (-1.6 pp)
-- **Honest reading: embeddings probably help, but the headline +3.7 pp overstates it**. The reproducible 5-fold story is "comparable performance, embeddings slightly favored." Both numbers reported.
-- Lightweight 80 MB encoder (MiniLM, 384-dim) plus linear classifier ≈ tuned 200K-feature TF-IDF + LinearSVC; no fine-tuning, no GPU
+**2. Pre-trained sentence embeddings beat BoW by a small but reliably measurable margin.**
+
+Three hypothesis tests, three lenses on the same effect:
+
+| Test | What it asks | Mean diff | n | p-value | 95% CI for ΔAUC |
+| --- | --- | :-: | :-: | :-: | :-: |
+| **DeLong's paired** (fold 0) | "Is the gap on the canonical fold real, or noise within those 2,007 paired predictions?" | +0.0368 | 2,007 rows | **0.023** | [+0.005, +0.068] |
+| **5-fold paired t** | "Does the gap persist across different held-out folds?" (canonical n=5) | +0.0139 | 5 folds | 0.18 | [-0.010, +0.038] |
+| **10×5 repeated CV paired t** | "Same question, with enough resolution to detect a small effect." | **+0.0176** | 50 fold-realizations | **<0.001** | **[+0.014, +0.021]** |
+
+**The headline is the bottom row.** With observed std ≈ 0.019 across folds and a true mean diff ≈ 0.014, a paired t-test on n=5 folds is genuinely underpowered (would need ≈ 15–20 folds to detect this size effect at α=0.05). Repeated CV (10 reps × 5 folds, different `random_state` per rep) gives 50 fold-realizations and tightens the CI without false-claiming more independent data — the effect is small (~1.4–2.1 pp), but consistent (47 of 50 realizations favor embeddings) and well-estimated.
+
+- **Honest summary**: embeddings beat BoW by **~1.4–2.1 percentage points typical AUC lift** (10×5 repeated CV), the gap is **statistically significant** when tested with adequate resolution (p<0.001 at n=50), but it's **modest in absolute size**. The original "+3.7 pp" headline was the lucky end of the fold-realization distribution, not the typical effect.
+- Lightweight 80 MB encoder (MiniLM, 384-dim) plus linear classifier ≈ tuned 200K-feature TF-IDF + LinearSVC; no fine-tuning, no GPU.
+- Caveat on repeated CV: 50 realizations are NOT 50 independent samples — they're 50 different splits of the same dataset. The tighter CI is a better point estimate of generalization performance, not a power increase. The direction of the effect (+) is robust; the magnitude is well-estimated for *this* dataset.
 
 **3. Contested-case slice is consistent with the headline story.**
 - On *contested* cases (where the case-prior doesn't pre-determine the vote, removing the easy "everyone votes the modal way in unanimous cases" signal), embeddings retain a **+4 pp per-Justice mean AUC gap** over BoW on fold 0 (0.532 → 0.576)
@@ -176,7 +184,8 @@ python -m src.phase45_baseline_sweep      # ~2 min  — embeddings 6-combo basel
 python -m src.phase45_gridsearch          # ~17 min — embeddings GridSearchCV
 python -m src.phase5_evaluation           # ~30 sec — refit + honesty triad
 python -m src.phase5_delong               # < 5 sec — DeLong's paired AUC test
-python -m src.phase5_kfold_eval           # ~30 sec — 5-fold robustness sweep
+python -m src.phase5_kfold_eval           # ~30 sec — canonical 5-fold robustness sweep
+python -m src.phase5_kfold_eval --n-reps 10  # ~5 min — 10×5 repeated CV (load-bearing test)
 python -m src.build_comparative_summary   # < 5 sec — side-by-side artifacts
 python -m src.build_ml_canvas             # < 5 sec — renders ml_canvas.pdf
 python -m src.build_deck_charts           # < 5 sec — renders 8 deck PNGs

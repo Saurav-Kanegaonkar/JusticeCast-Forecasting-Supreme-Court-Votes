@@ -94,7 +94,12 @@ def make_rf() -> RandomForestClassifier:
 
 LOGREG_GRID = {
     "C": [0.01, 0.1, 1, 10, 100],
-    "l1_ratio": [0.0, 1.0],  # = L2, L1 (liblinear-compatible corners)
+    # `l1_ratio` is the modern (sklearn 1.8+) replacement for `penalty=`.
+    # Per sklearn docs, `liblinear` supports only the corners
+    # `l1_ratio ∈ {0, 1}` (= pure L2, pure L1); the continuous-elasticnet
+    # range requires `solver='saga'`. So this two-point grid is the full
+    # liblinear-compatible sweep, not a sparse approximation of [0..1].
+    "l1_ratio": [0.0, 1.0],  # 0.0 = pure L2, 1.0 = pure L1 (liblinear corners)
 }
 
 SVM_RBF_GRID = {

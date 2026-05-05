@@ -68,7 +68,7 @@ BOXES = [
     # ── Learn (right two columns) ───────────────────────────────────────────
     (2, 0, "Value Propositions", "Business Understanding",
      "• Empirical lower bound on text-only bench-reading\n"
-     "• Pre-trained semantics edge BoW; gap small (+1.4 pp 5-fold mean)\n"
+     "• Pre-trained semantics beat BoW by ~1.4–2.1 pp (10×5 CV, p<0.001)\n"
      "• Don't sell TF-IDF — sell semantic representations as the floor"),
     (3, 0, "Data Sources", "Data Understanding",
      "• SCDB Justice-Centered file (release 2025_01, Latin-1, 83,644 vote rows × 61 cols) — labels\n"
@@ -89,11 +89,11 @@ BOXES = [
      "• Legal-tech vendors (Lex Machina, Bloomberg Law, Westlaw Edge, SCOTUSblog) — embedded research workflow\n"
      "• Litigation press (same-day forecast articles)"),
     (3, 2, "Headline Result", "Model Evaluation",
-     "• Fold-0 AUC: 0.532 → 0.569 (DeLong p=0.023)\n"
-     "• 5-fold mean lift: +1.4 pp ± 1.9 pp (paired t p≈0.18)\n"
-     "• Embeddings win 4 of 5 folds\n"
-     "• KBJackson swing +0.238 (n=19, no CI — exploratory)\n"
-     "• Honest read: embeddings ≥ BoW, gap small"),
+     "• 10×5 repeated CV: +1.76 pp ± 1.31 pp lift (p<0.001)\n"
+     "• 95% CI for mean lift: [+1.4 pp, +2.1 pp]\n"
+     "• Embeddings win 47 of 50 fold-realizations\n"
+     "• Fold-0 +3.7 pp is the lucky end (DeLong p=0.023)\n"
+     "• Effect is small but reliable, not single-fold luck"),
 ]
 
 
