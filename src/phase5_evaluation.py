@@ -54,6 +54,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
@@ -214,13 +215,18 @@ def main() -> None:
     test_df = split.test_df
     y_train, y_test = split.y_train, split.y_test
 
-    modeling_table = pd.read_parquet("data/processed/modeling_table.parquet")
-    pet_rate = modeling_table.groupby("oyez_identifier")["voted_petitioner"].mean()
+    # Per-Justice baseline = majority-class rate on TRAIN ONLY (no test
+    # leakage). Earlier versions of this file computed pet_rate on the full
+    # modeling_table — a small but real leak the per-Justice baseline was
+    # informed by test rows. Switched to train-only at peer-review request.
+    pet_rate = (
+        split.train_df.groupby("oyez_identifier")["voted_petitioner"].mean()
+    )
     full_baselines = pd.DataFrame({
         "oyez_identifier": pet_rate.index,
-        "petitioner_rate_full": pet_rate.values,
+        "petitioner_rate_train": pet_rate.values,
     }).assign(per_justice_baseline=lambda d:
-              d["petitioner_rate_full"].apply(lambda p: max(p, 1 - p)))
+              d["petitioner_rate_train"].apply(lambda p: max(p, 1 - p)))
 
     # ----- BoW track refit + scores -----
     logger.info("Refitting BoW winner (LinearSVC, %s)...", BOW_BEST_PARAMS)
@@ -237,7 +243,21 @@ def main() -> None:
     # LinearSVC inside CalibratedClassifierCV. Note: this is for the
     # calibration curve only — AUC and confusion matrix use the raw
     # decision_function from the unwrapped winner.
+    #
+    # CV discipline: CalibratedClassifierCV's default `cv=5` uses
+    # StratifiedKFold, which would let the same case land in different
+    # calibration folds (mild leakage). We instead pre-compute a
+    # StratifiedGroupKFold split on caseId (matches the discipline used
+    # everywhere else in the project) and pass it as an iterable of
+    # (train_idx, test_idx) tuples — the API supported form.
     logger.info("Calibrating BoW for calibration curve...")
+    cal_splitter = StratifiedGroupKFold(
+        n_splits=5, shuffle=True, random_state=RANDOM_STATE,
+    )
+    cal_groups_train = split.train_df["caseId"].to_numpy()
+    cal_cv_splits = list(cal_splitter.split(
+        np.zeros(len(y_train)), y_train, groups=cal_groups_train,
+    ))
     bow_calibrated_pipe = Pipeline([
         ("vect", TfidfVectorizer(
             **BOW_BEST_PARAMS["vec"],
@@ -253,7 +273,7 @@ def main() -> None:
                 max_iter=5000,
             ),
             method="sigmoid",
-            cv=5,
+            cv=cal_cv_splits,
         )),
     ])
     bow_calibrated_pipe.fit(split.train_df["text"], y_train)

@@ -27,38 +27,40 @@ The contest between the two representations is the contribution. It's a comparat
 - Bigrams and trigrams add nothing — best vectorizer config is unigrams
 - Top features are thematic legal vocabulary (`officer`, `religious`, `jury`, `sentence`) — the model is partly learning case topic, not stance
 
-**2. Pre-trained sentence embeddings + Logistic Regression reach test ROC AUC 0.5691.**
-- **+3.7 percentage-point lift** over the tuned BoW winner
-- The lift is **9× the entire BoW tuning gain**
-- A lightweight 80 MB encoder (MiniLM, 384-dim) plus a linear classifier outperforms a tuned 200K-feature TF-IDF + LinearSVC
-- No fine-tuning, no domain adaptation
+**2. Pre-trained sentence embeddings + Logistic Regression edge out BoW, but the gap is fragile.**
+- On the canonical fold-0 test set: BoW 0.532, Embeddings **0.5691** — a **+3.7 pp single-fold lift**
+- Single-fold lift is statistically significant by **DeLong's paired test** (Z=2.27, **p=0.023**, 95% bootstrap CI for the difference [+0.5 pp, +6.8 pp])
+- **But** across all 5 StratifiedGroupKFold folds, mean lift is **+1.4 pp ± 1.9 pp** (paired t-test p≈0.18, CI [-1.0 pp, +3.8 pp]) — within fold-to-fold noise
+- Embeddings win 4 of 5 folds; fold 0 happened to be the most favorable single fold for embeddings (+3.7 pp), fold 4 favors BoW (-1.6 pp)
+- **Honest reading: embeddings probably help, but the headline +3.7 pp overstates it**. The reproducible 5-fold story is "comparable performance, embeddings slightly favored." Both numbers reported.
+- Lightweight 80 MB encoder (MiniLM, 384-dim) plus linear classifier ≈ tuned 200K-feature TF-IDF + LinearSVC; no fine-tuning, no GPU
 
-**3. The lift survives the strict honesty test.**
-- On *contested* cases (where the case-prior doesn't pre-determine the vote, so author-identity-plus-priors recovery is least useful), embeddings retain a **+4 pp per-Justice mean AUC gap** over BoW (0.532 → 0.576)
-- **13 of 15 Justices** above chance with embeddings on contested cases — versus only 9 of 15 with BoW
-- The embedding gain is real bench-questioning signal, not just identity-recovery
+**3. Contested-case slice is consistent with the headline story.**
+- On *contested* cases (where the case-prior doesn't pre-determine the vote, removing the easy "everyone votes the modal way in unanimous cases" signal), embeddings retain a **+4 pp per-Justice mean AUC gap** over BoW on fold 0 (0.532 → 0.576)
+- **13 of 15 Justices** above chance with embeddings on contested cases vs 9 of 15 with BoW (fold 0 point estimates; per-Justice CIs are wide and most cross 0.5 — see caveat below)
+- Caveat on interpretation: contested-only filters out case-level prior recovery, but does not isolate text signal from per-Justice base rates. A model can still recognize Justice-style writing and route through that Justice's individual base rate. To fully isolate "from text alone," you'd want leave-one-Justice-out — out of scope here.
 
-**4. The KBJackson centerpiece — the project's sharpest single finding.**
-- With BoW: Ketanji Brown Jackson has the **worst** per-Justice contested AUC on the bench (0.405 — *below random*); the model can't recover any signal from her questioning
-- With embeddings: her contested AUC jumps to **0.643**, a **+0.238 lift** on the strict test
-- Same Justice, same data, same labels — opposite conclusions about predictability depending solely on the representation
-- KBJackson is the most-engaged questioner (median 1,205 words/case, 96% speaking rate); pre-trained encoders capture semantic structure that TF-IDF unigrams cannot
+**4. The KBJackson "biggest swing" — striking but underpowered (n=19).**
+- With BoW on fold 0: KBJackson contested AUC = **0.405** (below random)
+- With embeddings on fold 0: KBJackson contested AUC = **0.643** (+0.238)
+- **Caveat: n = 19 contested test rows.** Our own bootstrap floor (`min_n_for_ci=30`) refuses to compute a CI here. With AUC SE ≈ 0.10–0.13 at this sample size, the +0.238 swing is approximately 2σ — interesting but **not conclusive**. We report it as the **biggest single-Justice swing** across the bench, not a robust per-Justice claim.
+- KBJackson is the most-engaged questioner (median 1,205 words/case, 96% speaking rate); the *direction* of the swing is plausible. The *magnitude* would need a larger contested sample (more terms, more cases) to lock in.
 
-**5. Mixed evidence across the bench, reported honestly.**
-- Embeddings win for most Justices, but not all — *not every Justice improves*
-- **Thomas** gains the most: contested AUC BoW 0.494 → Embeddings 0.776 (+0.282); the silent Justice's few utterances carry strong stance signal
-- **Kennedy regresses**: BoW 0.653 → Embeddings 0.525 (−0.128); the long-time swing-justice voting was tightly correlated with thematic case content (BoW could exploit it; embeddings collapse those topical distinctions)
+**5. Mixed evidence across the bench, with wide per-Justice CIs.**
+- Per-Justice point estimates favor embeddings for most Justices, but **most per-Justice 95% CIs cross 0.5 in both tracks** — read as directional, not definitive.
+- **Thomas** has the largest per-Justice point lift: contested AUC BoW 0.494 → Embeddings 0.776 (+0.282)
+- **Kennedy regresses** on point estimate: BoW 0.653 → Embeddings 0.525 (−0.128); the long-time swing-justice voting was tightly correlated with thematic case content
+- Treat individual-Justice numbers as exploratory; the aggregate story is what's robust.
 
 **6. The absolute level remains modest.**
-- AUC 0.569 is better than chance, better than BoW, but still a weak predictor in isolation
-- The honest framing: **lower bound on bench-reading from text alone**
+- AUC ~0.55 (5-fold mean) / 0.57 (fold 0) is better than chance and better than BoW, but a weak predictor in isolation
+- Honest framing: **a lower bound on bench-reading from text alone**, not a deployable forecasting tool
 - Out-of-scope frontiers that should improve it: sequence-aware models, audio features (tone, pace, hesitation from the Oyez .mp3 files), structured case-feature integration
 
 ### Why this matters for legal-tech product strategy
 
-- **Don't sell a TF-IDF question-classifier.** The right product uses pre-trained semantic representations at minimum.
-- **Marginal cost over BoW is small**: one-time ~12 minutes of CPU encoding for a corpus this size, no fine-tuning, no GPU dependency.
-- **Payoff is access to semantic structure that lexical features cannot reach.** In a domain where 3–4 pp of AUC translates to material business decisions (which Justices to prep for, where to focus amicus efforts), that gap matters.
+- **Don't sell a TF-IDF question-classifier as a leap forward** — pre-trained semantic representations are at least as good and probably slightly better, with low marginal cost (~12 min CPU encoding for this corpus, no fine-tuning, no GPU).
+- **The margin is small enough to flip across folds**, so don't overclaim a "big lift." The right framing is: pre-trained embeddings should be the floor, not BoW; the practical payoff in this domain is access to semantic structure that lexical features cannot reach, even if the AUC gap is modest.
 
 ---
 
@@ -146,7 +148,7 @@ pytest                                    # 104 tests, ~20 sec
 Use this if you want to regenerate the complete corpus from SCDB + Oyez (e.g., to extend the term window, refresh after a new SCDB release, or audit the full pipeline). Total wall-clock is dominated by the 54-minute polite Oyez fetch.
 
 ```sh
-# 0. Prerequisites: Python 3.14+, git
+# 0. Prerequisites: Python 3.11+ (project pinned to 3.14 in requirements.txt; 3.11 onward works), git
 git clone https://github.com/Saurav-Kanegaonkar/JusticeCast-Forecasting-Supreme-Court-Votes
 cd JusticeCast-Forecasting-Supreme-Court-Votes
 
@@ -173,6 +175,8 @@ python -m src.phase4_gridsearch           # ~7 min  — BoW GridSearchCV (n_jobs
 python -m src.phase45_baseline_sweep      # ~2 min  — embeddings 6-combo baseline
 python -m src.phase45_gridsearch          # ~17 min — embeddings GridSearchCV
 python -m src.phase5_evaluation           # ~30 sec — refit + honesty triad
+python -m src.phase5_delong               # < 5 sec — DeLong's paired AUC test
+python -m src.phase5_kfold_eval           # ~30 sec — 5-fold robustness sweep
 python -m src.build_comparative_summary   # < 5 sec — side-by-side artifacts
 python -m src.build_ml_canvas             # < 5 sec — renders ml_canvas.pdf
 python -m src.build_deck_charts           # < 5 sec — renders 8 deck PNGs

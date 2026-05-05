@@ -68,7 +68,9 @@ Source modules. Every file has a polished header docstring stating what it does,
 
 | Path | Purpose |
 | --- | --- |
-| `src/phase5_evaluation.py` | Refits both Phase 4 (BoW) and Phase 4.5 (Embeddings) winners on full canonical training fold; computes the **honesty triad** (per-Justice ROC AUC under three slicings: global, unanimous-only, contested-only). Writes 9 result CSVs spanning summary metrics, ROC/PR/calibration data, confusion matrices, per-Justice lift, test predictions, and extreme-score utterances. |
+| `src/phase5_evaluation.py` | Refits both Phase 4 (BoW) and Phase 4.5 (Embeddings) winners on full canonical training fold; computes the **honesty triad** (per-Justice ROC AUC under three slicings: global, unanimous-only, contested-only). Writes 9 result CSVs spanning summary metrics, ROC/PR/calibration data, confusion matrices, per-Justice lift, test predictions, and extreme-score utterances. Per-review fixes: per-Justice baseline computed train-only (no test leakage); CalibratedClassifierCV uses StratifiedGroupKFold (case-grouped). |
+| `src/phase5_delong.py` | Paired AUC hypothesis test on the BoW-vs-Embeddings gap. Implements DeLong's two-sided test (Sun & Xu 2014 vectorized form) plus a paired bootstrap CI. Reports Z, p-value, 95% CI on `reports/results/phase5_delong_test.csv`. Added in peer-review pass. |
+| `src/phase5_kfold_eval.py` | 5-fold cross-validated test AUC sweep — refits each winner on the 4-fold training portion of each StratifiedGroupKFold fold and scores on the held-out fold. Reports per-fold AUC for both tracks plus the paired t-test on per-fold diffs. Added in peer-review pass to address single-fold-luck concern. |
 | `src/build_comparative_summary.py` | Builds `comparative_summary.csv` (top-line, one row per track winner) and `comparative_per_justice.csv` (long form, BoW vs Embeddings per Justice). Side-by-side artifacts for Phase 5 narrative. |
 | `src/build_ml_canvas.py` | Renders `reports/ml_canvas.pdf` — the 12-box Machine Learning Canvas v0.4 with each box CRISP-DM-tagged. Matplotlib + PdfPages. |
 | `src/build_deck_charts.py` | Phase 7 — renders 8 deck-quality chart PNGs into `reports/deck_assets/` with the locked deck theme (deep navy + warm gold + cream). Source of every chart asset in the pitch-deck bundle. |
@@ -135,7 +137,7 @@ Source modules. Every file has a polished header docstring stating what it does,
 
 ### Result CSVs (`reports/results/`)
 
-25+ CSV files spanning Phases 1–5. Notebook reads from these at render time; we don't re-run modeling sweeps to re-knit the notebook (Non-Negotiable #7).
+27+ CSV files spanning Phases 1–5. Notebook reads from these at render time; we don't re-run modeling sweeps to re-knit the notebook (Non-Negotiable #7).
 
 | Path pattern | Purpose |
 | --- | --- |
@@ -166,6 +168,8 @@ Source modules. Every file has a polished header docstring stating what it does,
 | `reports/results/phase5_confusion_matrices.csv` | 2x2 confusion matrix per track |
 | `reports/results/phase5_test_predictions.csv` | One row per test utterance with both tracks' scores + predictions |
 | `reports/results/phase5_extreme_utterances.csv` | Top 20 highest-predicted + 20 lowest-predicted by `emb_proba`, with case context |
+| `reports/results/phase5_delong_test.csv` | DeLong's paired AUC test + paired bootstrap CI for the BoW-vs-Embeddings gap on fold 0. Single row. |
+| `reports/results/phase5_kfold_evaluation.csv` | Per-fold AUC for both tracks across all 5 StratifiedGroupKFold folds (5 rows). |
 
 ### Other (`reports/figures/`)
 

@@ -64,6 +64,16 @@ def preprocess_text(text: str) -> str:
 #
 # Conservative scope: only the title forms that name advocates. Do NOT touch
 # 'justice <surname>' (Justices addressing each other is a different signal).
+#
+# Known false-positive class (peer-review note): the alternation includes
+# "general" so the regex catches "General Verrilli" (a Solicitor General
+# addressing the Court) but also matches innocent compounds like
+# "general counsel", "general motors", "ms office". After lowercasing,
+# every match is destroyed token-pair, so a stray "general counsel"
+# becomes one fewer bigram. In practice the impact is small (these
+# compounds are rare in oral-argument transcripts and the model isn't
+# heavily relying on the second token). Worth knowing if anyone tunes
+# this pattern further.
 _ADVOCATE_TITLE_RE = re.compile(
     # Title (with optional trailing period) + whitespace + capitalized surname.
     # Oyez transcripts use "Mr. Frederick" with period; the optional `\.?`
